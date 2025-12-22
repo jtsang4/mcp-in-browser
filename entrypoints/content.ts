@@ -10,6 +10,10 @@ interface ContentMessage {
   id: string;
   selector?: string;
   value?: string;
+  x?: number;
+  y?: number;
+  format?: string;
+  quality?: number;
 }
 
 interface ResponseMessage {
@@ -169,6 +173,74 @@ async function handleClick(selector: string): Promise<{ success: boolean; error?
     element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
     await new Promise(resolve => setTimeout(resolve, 50));
     element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    // Also try the native click as fallback
+    if (element instanceof HTMLElement) {
+      element.click();
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * Click at a specific coordinate on the page
+ */
+async function handleClickAt(x: number, y: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Find the element at the specified coordinates
+    const element = document.elementFromPoint(x, y);
+
+    if (!element) {
+      return { success: false, error: `No element found at coordinates (${x}, ${y})` };
+    }
+
+    // Dispatch click events at the element's position
+    const rect = element.getBoundingClientRect();
+    const clientX = rect.left + x;
+    const clientY = rect.top + y;
+
+    // Create detailed mouse events with coordinates
+    const mouseDownEvent = new MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      screenX: x + window.screenX,
+      screenY: y + window.screenY,
+      button: 0,
+      buttons: 1,
+    });
+
+    const mouseUpEvent = new MouseEvent('mouseup', {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      screenX: x + window.screenX,
+      screenY: y + window.screenY,
+      button: 0,
+      buttons: 0,
+    });
+
+    const clickEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      screenX: x + window.screenX,
+      screenY: y + window.screenY,
+      button: 0,
+      buttons: 0,
+    });
+
+    element.dispatchEvent(mouseDownEvent);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    element.dispatchEvent(mouseUpEvent);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    element.dispatchEvent(clickEvent);
 
     // Also try the native click as fallback
     if (element instanceof HTMLElement) {
@@ -353,6 +425,13 @@ chrome.runtime.onMessage.addListener((message: ContentMessage, sender, _sendResp
       case 'click':
         if (message.selector) {
           const result = await handleClick(message.selector);
+          sendResponseMessage(id, result);
+        }
+        break;
+
+      case 'click_at':
+        if (message.x !== undefined && message.y !== undefined) {
+          const result = await handleClickAt(message.x, message.y);
           sendResponseMessage(id, result);
         }
         break;

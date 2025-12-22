@@ -23,6 +23,12 @@ export interface ClickInput {
   tabId?: number;
 }
 
+export interface ClickAtInput {
+  x: number;
+  y: number;
+  tabId?: number;
+}
+
 export interface FillInput {
   selector: string;
   value: string;

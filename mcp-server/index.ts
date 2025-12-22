@@ -103,6 +103,28 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    name: 'click_at',
+    description: 'Click at a specific coordinate on the page (x, y in pixels relative to the viewport)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        x: {
+          type: 'number',
+          description: 'X coordinate in pixels (relative to the viewport)',
+        },
+        y: {
+          type: 'number',
+          description: 'Y coordinate in pixels (relative to the viewport)',
+        },
+        tabId: {
+          type: 'number',
+          description: 'Optional tab ID (defaults to current tab)',
+        },
+      },
+      required: ['x', 'y'],
+    },
+  },
+  {
     name: 'fill',
     description: 'Fill an input field with text using CSS selector',
     inputSchema: {
