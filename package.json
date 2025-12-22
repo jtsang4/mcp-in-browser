@@ -1,9 +1,12 @@
 {
-  "name": "wxt-vue-starter",
-  "description": "manifest.json description",
+  "name": "claude-in-chrome",
+  "description": "Browser automation extension that works with Claude Code via MCP",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "claude-in-chrome-mcp": "./mcp-server/index.ts"
+  },
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
@@ -12,13 +15,24 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "vue-tsc --noEmit",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "bridge": "tsx mcp-server/bridge.ts",
+    "mcp-server": "tsx mcp-server/index.ts",
+    "mcp-server:dev": "tsx watch mcp-server/index.ts"
   },
   "dependencies": {
-    "vue": "^3.5.25"
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@types/ws": "^8.18.1",
+    "@webext-core/messaging": "^2.3.0",
+    "@webext-core/storage": "^1.2.0",
+    "vue": "^3.5.25",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@types/chrome": "^0.1.32",
+    "@types/node": "^22.19.3",
     "@wxt-dev/module-vue": "^1.0.3",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vue-tsc": "^3.1.8",
     "wxt": "^0.20.6"

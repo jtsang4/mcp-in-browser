@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "claude-in-chrome": {
+      "command": "node",
+      "args": [
+        "--loader",
+        "tsx",
+        "/Users/jtsang/Documents/playground/claude-in-chrome/mcp-server/index.ts"
+      ],
+      "env": {
+        "EXTENSION_ID": "your-extension-id-here"
+      }
+    }
+  }
+}
