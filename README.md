@@ -1,6 +1,6 @@
-# Claude in Chrome
+# MCP in Browser
 
-A browser automation Chrome extension that works with Claude Code via the Model Context Protocol (MCP). This project provides similar functionality to the official Claude in Chrome extension, but allows you to use your own models and APIs.
+A browser automation Chrome/Firefox extension that works with Claude Code via the Model Context Protocol (MCP). This project provides similar functionality to the official Claude in Chrome extension, but allows you to use your own models and APIs.
 
 ## Features
 
@@ -9,27 +9,44 @@ A browser automation Chrome extension that works with Claude Code via the Model 
 - **MCP Server Integration**: Works with Claude Code via stdio transport
 - **Content Script Automation**: Interact with any web page using CSS selectors
 - **Tab Management**: List, activate, and manage browser tabs
+- **WebSocket Bridge**: Bidirectional communication between MCP server and browser extension
 
 ## Architecture
 
+The project uses a bridge architecture to connect the MCP server (Node.js) with the browser extension:
+
 ```
-┌─────────────────┐     stdio/HTTP      ┌──────────────────┐
+┌─────────────────┐     stdio           ┌──────────────────┐
 │   Claude Code   │ ◄─────────────────► │   MCP Server     │
-│   (MCP Host)    │                     │  (index.ts)      │
-└─────────────────┘                     └────────┬─────────┘
+│   (MCP Host)    │                      │  (index.ts)      │
+└─────────────────┘                      └────────┬─────────┘
                                                  │
-                                                 │ chrome.runtime
-                                                 │ (Extension Messaging)
+                                                 │ WebSocket
+                                                 │
+                                        ┌────────▼─────────┐
+                                        │   WebSocket      │
+                                        │   Bridge         │
+                                        │  (bridge.ts)     │
+                                        └────────┬─────────┘
+                                                 │
+                                                 │ WebSocket
                                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Chrome Extension                             │
+│                     Browser Extension                            │
 ├─────────────────┬─────────────────┬─────────────────────────────┤
 │  Background.js  │  Content Script │      Side Panel            │
-│  - Message hub  │  - DOM actions  │   - Chat UI               │
-│  - Tab mgmt     │  - Click/Fill   │   - Tool display          │
-│  - Screenshots  │  - Page content │   - Context view           │
+│  - Bridge client│  - DOM actions  │   - Chat UI               │
+│  - Tool handler │  - Click/Fill   │   - Tool display          │
+│  - Tab mgmt     │  - Page content │   - Context view           │
+│  - Screenshots  │                 │                            │
 └─────────────────┴─────────────────┴─────────────────────────────┘
 ```
+
+### Components
+
+1. **MCP Server** (`mcp-server/index.ts`): Implements the MCP protocol, exposes browser automation tools
+2. **WebSocket Bridge** (`mcp-server/bridge.ts`): Forwards messages between MCP server and browser extension
+3. **Browser Extension**: Chrome/Firefox extension that executes browser automation
 
 ## Installation
 
@@ -53,16 +70,35 @@ pnpm run dev
 3. Click "Load unpacked"
 4. Select the `.output/chrome-mv3` directory
 
-### 3. Configure MCP Server for Claude Code
+### 3. Start the Bridge Server
 
-**Simpler Configuration (Recommended)**
+The bridge server must be running for the MCP server to communicate with the extension:
+
+```bash
+pnpm run bridge
+```
+
+You should see:
+```
+[Bridge] WebSocket server started on ws://localhost:37373
+[Bridge] Waiting for clients to connect...
+```
+
+Then load the extension - you should see:
+```
+[Bridge] Extension client registered
+```
+
+### 4. Configure MCP Server for Claude Code
 
 Add to your Claude Code settings (`~/.config/claude-code/config.json` or similar):
+
+**Option 1: Using tsx directly (Recommended)**
 
 ```json
 {
   "mcpServers": {
-    "claude-in-chrome": {
+    "mcp-in-browser": {
       "command": "tsx",
       "args": ["/Users/jtsang/Documents/playground/claude-in-chrome/mcp-server/index.ts"]
     }
@@ -70,12 +106,12 @@ Add to your Claude Code settings (`~/.config/claude-code/config.json` or similar
 }
 ```
 
-**Alternative: Using pnpm**
+**Option 2: Using pnpm**
 
 ```json
 {
   "mcpServers": {
-    "claude-in-chrome": {
+    "mcp-in-browser": {
       "command": "pnpm",
       "args": ["run", "mcp-server"],
       "cwd": "/Users/jtsang/Documents/playground/claude-in-chrome"
@@ -84,12 +120,12 @@ Add to your Claude Code settings (`~/.config/claude-code/config.json` or similar
 }
 ```
 
-**Alternative: Using npx (no installation needed)**
+**Option 3: Using npx (no installation needed)**
 
 ```json
 {
   "mcpServers": {
-    "claude-in-chrome": {
+    "mcp-in-browser": {
       "command": "npx",
       "args": ["-y", "tsx", "/Users/jtsang/Documents/playground/claude-in-chrome/mcp-server/index.ts"]
     }
@@ -98,6 +134,13 @@ Add to your Claude Code settings (`~/.config/claude-code/config.json` or similar
 ```
 
 > **Note**: Replace `/Users/jtsang/Documents/playground/claude-in-chrome` with your actual project path.
+
+## Usage Flow
+
+1. **Start the bridge**: `pnpm run bridge`
+2. **Load the extension** in Chrome (connects to bridge automatically)
+3. **Configure Claude Code** with the MCP server
+4. **Use tools** from Claude Code - requests flow: Claude Code → MCP Server → Bridge → Extension
 
 ## Available Tools
 
@@ -135,42 +178,75 @@ pnpm run build:firefox   # Firefox
 pnpm run zip             # Chrome
 pnpm run zip:firefox     # Firefox
 
+# Run bridge server
+pnpm run bridge
+
 # Run MCP server directly (for testing)
 pnpm run mcp-server
+pnpm run mcp-server:dev  # With watch mode
 ```
 
 ## Project Structure
 
 ```
-claude-in-chrome/
+mcp-in-browser/
 ├── entrypoints/
-│   ├── background.ts       # Service worker (message hub)
+│   ├── background.ts       # Service worker (bridge client, tool handler)
 │   ├── content.ts          # Content script (DOM automation)
 │   ├── sidepanel/          # Side panel chat UI
 │   │   ├── App.vue
 │   │   ├── main.ts
 │   │   └── style.css
-│   └── popup/              # Extension popup (optional)
+│   └── popup/              # Extension popup
 ├── messaging/
 │   └── protocol.ts         # Type-safe messaging protocol
 ├── mcp-server/
-│   └── index.ts            # MCP server implementation
+│   ├── index.ts            # MCP server implementation
+│   └── bridge.ts           # WebSocket bridge
 ├── types/
 │   └── index.ts            # TypeScript definitions
+├── background-bridge.ts    # Extension WebSocket client
 ├── wxt.config.ts           # WXT framework config
 └── package.json
 ```
 
-## Usage Example
+## Troubleshooting
 
-Once configured with Claude Code, you can ask questions like:
+### Bridge Issues
 
-- "Navigate to google.com"
-- "Click the search button"
-- "Fill in the email field with test@example.com"
-- "Take a screenshot of the current page"
-- "List all open tabs"
-- "What's the title of the current page?"
+**Problem**: "Extension not connected" error
+
+**Solution**:
+1. Ensure the bridge is running: `pnpm run bridge`
+2. Check bridge logs show "Extension client registered"
+3. Reload the extension in Chrome
+
+**Problem**: Bridge exits with code 137
+
+**Solution**: This is usually a memory issue or manual kill. Restart:
+```bash
+pkill -f "tsx.*bridge"
+pnpm run bridge
+```
+
+### Extension Issues
+
+**Problem**: Extension doesn't connect to bridge
+
+**Solution**: Check the service worker console:
+1. Go to `chrome://extensions/`
+2. Find "MCP in Browser"
+3. Click "Service worker" to view console
+4. Look for "[Extension] Connected to bridge"
+
+### MCP Server Issues
+
+**Problem**: Tools timeout
+
+**Solution**:
+1. Verify bridge is running and extension is connected
+2. Check both bridge and service worker console logs
+3. Ensure the content script is injected (navigate to a webpage first)
 
 ## Permissions
 
@@ -188,13 +264,15 @@ The extension requires the following Chrome permissions:
 - The extension content script runs on all websites
 - Always review AI-generated automation commands before execution
 - Sensitive page data (passwords, tokens) is accessible to content scripts
-- MCP server communication should be secured in production
+- The bridge uses WebSocket connections on localhost only
+- Consider adding authentication for production use
 
 ## Limitations
 
 - Content scripts cannot interact with browser chrome UI (settings, extensions pages)
 - Some websites may block content script injection (CSP)
 - File:// URLs require special Chrome configuration
+- Bridge must be running for tools to work
 
 ## Roadmap
 
@@ -203,6 +281,7 @@ The extension requires the following Chrome permissions:
 - [ ] Add visual element selection
 - [ ] Create recording/playback feature
 - [ ] Add multi-step workflow support
+- [ ] Firefox support testing
 
 ## License
 

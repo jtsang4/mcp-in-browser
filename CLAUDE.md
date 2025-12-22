@@ -4,7 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a browser extension built with **WXT** (Web Extension Tools) and **Vue 3** + TypeScript. WXT is a framework that provides file-based routing for browser extension entry points and handles cross-browser builds (Chrome/Firefox).
+This is **MCP in Browser** - a browser automation Chrome/Firefox extension built with **WXT** (Web Extension Tools) and **Vue 3** + TypeScript. The project provides browser automation tools to Claude Code via the Model Context Protocol (MCP).
+
+### Architecture
+
+The project uses a bridge architecture for communication between the MCP server and the browser extension:
+
+1. **MCP Server** (`mcp-server/index.ts`) - Node.js server that implements MCP protocol
+2. **WebSocket Bridge** (`mcp-server/bridge.ts`) - Forwards messages between MCP server and extension
+3. **Browser Extension** - Chrome/Firefox extension that executes browser automation
+4. **Extension Bridge Client** (`background-bridge.ts`) - WebSocket client in the extension
+
+```
+Claude Code → MCP Server → WebSocket Bridge → Extension (background-bridge.ts) → Content Scripts
+```
 
 ## Development Commands
 
@@ -23,6 +36,13 @@ npm run zip:firefox     # Firefox
 
 # Type checking
 npm run compile     # Run vue-tsc type checking
+
+# Bridge server (required for MCP server to communicate with extension)
+npm run bridge
+
+# MCP server (for testing)
+npm run mcp-server
+npm run mcp-server:dev  # With watch mode
 ```
 
 ## Architecture
@@ -34,8 +54,21 @@ WXT uses a file-based routing system in `entrypoints/`:
 - `background.ts` - Service worker/background script using `defineBackground()`
 - `content.ts` - Content script injected into web pages using `defineContentScript()`
 - `popup/` - Browser action popup UI (Vue 3 app)
+- `sidepanel/` - Side panel UI (Vue 3 app)
 
 Each file in `entrypoints/` automatically becomes an extension entry point.
+
+### Bridge Architecture
+
+The bridge is a WebSocket server that connects the MCP server (Node.js) with the browser extension:
+
+1. **Start the bridge**: `npm run bridge` - Runs on `ws://localhost:37373`
+2. **Extension connects**: The extension automatically connects to the bridge via `background-bridge.ts`
+3. **MCP server connects**: The MCP server connects to the bridge when started
+
+Message flow:
+- Tool calls: MCP Server → Bridge → Extension → Content Scripts
+- Responses: Content Scripts → Extension → Bridge → MCP Server
 
 ### Content Script Matching
 
@@ -137,6 +170,39 @@ registerMathService();
 const mathService = getMathService();
 await mathService.fibonacci(100);
 ```
+
+## Key Files
+
+### `background-bridge.ts`
+
+Extension WebSocket client that connects to the bridge server:
+
+- Automatically connects on service worker startup
+- Handles incoming tool calls from the MCP server
+- Sends responses back through the bridge
+- Auto-reconnects on disconnection
+
+### `mcp-server/bridge.ts`
+
+WebSocket bridge server that forwards messages:
+
+- Listens on `ws://localhost:37373`
+- Tracks both extension and MCP server clients
+- Forwards `tool_call` messages from MCP server to extension
+- Forwards `response` messages from extension to MCP server
+
+### `mcp-server/index.ts`
+
+MCP server implementation:
+
+- Implements the MCP protocol (stdio transport)
+- Defines all browser automation tools
+- Connects to the bridge via WebSocket
+- Forwards tool calls and receives responses
+
+### `types/index.ts`
+
+TypeScript definitions for all tool inputs/outputs.
 
 ## Build Output
 

@@ -1,11 +1,11 @@
 {
-  "name": "claude-in-chrome",
+  "name": "mcp-in-browser",
   "description": "Browser automation extension that works with Claude Code via MCP",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "claude-in-chrome-mcp": "./mcp-server/index.ts"
+    "mcp-in-browser": "./mcp-server/index.ts"
   },
   "scripts": {
     "dev": "wxt",

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * MCP Server for Claude in Chrome
+ * MCP Server for MCP in Browser
  *
- * This MCP server provides tools for browser automation through the Chrome extension.
+ * This MCP server provides tools for browser automation through the browser extension.
  * It communicates with the extension via a WebSocket bridge.
  */
 
@@ -316,7 +316,7 @@ async function sendExtensionMessage(toolName: string, params: Record<string, unk
 // Create MCP server
 const server = new Server(
   {
-    name: 'claude-in-chrome-mcp-server',
+    name: 'mcp-in-browser-server',
     version: '1.0.0',
   },
   {
@@ -368,7 +368,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Claude in Chrome MCP Server running on stdio');
+  console.error('MCP in Browser server running on stdio');
 }
 
 main().catch((error) => {

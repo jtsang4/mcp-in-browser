@@ -4,7 +4,7 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-vue'],
   manifest: {
-    name: 'Claude in Chrome',
+    name: 'MCP in Browser',
     description: 'Browser automation extension that works with Claude Code via MCP',
     permissions: [
       'tabs',

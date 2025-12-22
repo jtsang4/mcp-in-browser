@@ -1,5 +1,5 @@
 /**
- * WebSocket Client for Claude in Chrome Extension
+ * WebSocket Client for MCP in Browser Extension
  *
  * This service connects to the WebSocket bridge and handles tool calls from the MCP server.
  */
