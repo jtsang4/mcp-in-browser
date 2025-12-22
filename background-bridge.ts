@@ -192,21 +192,21 @@ async function handleToolCall(message: { tool: string; params: Record<string, un
           throw new Error('No active window');
         }
 
-        // Capture screenshot and get dimensions
+        // Get window info for dimensions
+        const window = await chrome.windows.get(tab.windowId);
+
+        // Capture screenshot
         const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
           format: (params.format as 'png' | 'jpeg') || 'png',
           quality: (params.quality as number) || 90,
         });
 
-        // Get image dimensions by loading it
-        const dimensions = await getImageDimensions(dataUrl);
-
         result = {
           success: true,
           screenshot: {
             dataUrl,
-            width: dimensions.width,
-            height: dimensions.height,
+            width: window.width || 0,
+            height: window.height || 0,
           },
         };
         break;
@@ -306,22 +306,6 @@ function sendToContentScript(tabId: number, tool: string, params: Record<string,
       pendingRequests.delete(id);
       reject(error);
     });
-  });
-}
-
-/**
- * Get image dimensions from a data URL
- */
-function getImageDimensions(dataUrl: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      resolve({ width: img.width, height: img.height });
-    };
-    img.onerror = () => {
-      reject(new Error('Failed to load image for dimension detection'));
-    };
-    img.src = dataUrl;
   });
 }
 
