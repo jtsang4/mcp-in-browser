@@ -8,7 +8,7 @@ import type { AppConfig } from '../core/config';
 export interface QueuedTask<T = unknown> {
   id: string;
   fn: () => Promise<T>;
-  resolve: (value: unknown) => void;
+  resolve: (value: T | PromiseLike<T>) => void;
   reject: (error: Error) => void;
   tabId?: number;
   priority?: number;
@@ -16,7 +16,7 @@ export interface QueuedTask<T = unknown> {
 }
 
 export class TaskQueue {
-  private queue: QueuedTask[] = [];
+  private queue: QueuedTask<unknown>[] = [];
   private running = new Set<string>();
   private perTabCount = new Map<number, number>();
 
@@ -45,17 +45,17 @@ export class TaskQueue {
     }
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      const task: QueuedTask = {
+      const task: QueuedTask<T> = {
         id: `task-${Date.now()}-${Math.random().toString(36).substring(2)}`,
         fn,
-        resolve: resolve as (value: unknown) => void,
+        resolve,
         reject,
         tabId: options?.tabId,
         priority: options?.priority ?? 0,
         enqueuedAt: Date.now(),
       };
 
-      this.queue.push(task as QueuedTask<T>);
+      this.queue.push(task as QueuedTask<unknown>);
       this.sortQueue();
       this.process();
     });

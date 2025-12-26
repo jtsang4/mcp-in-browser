@@ -10,6 +10,7 @@ import { WaitFor } from '../src/content/wait-for';
 import { PageInfo } from '../src/content/page-info';
 import { logger } from '../src/core/logger';
 import { browser } from 'wxt/browser';
+import type { JsonValue } from '../types';
 
 interface ContentMessage {
   type: string;
@@ -21,17 +22,28 @@ interface ContentMessage {
   text?: string;
   key?: string;
   attribute?: string;
-  options?: Record<string, unknown>;
+  options?: Record<string, JsonValue>;
 }
+
+// Define all possible handler result types
+type ContentHandlerResult = 
+  | { success: boolean; error?: string }
+  | { success: true; content: import('../src/content/page-info').PageContent }
+  | { success: true; element: import('../src/content/page-info').ElementInfo }
+  | { success: true; elements: import('../src/content/page-info').ElementInfo[] }
+  | { success: true; values: Record<string, FormDataEntryValue | FormDataEntryValue[]> }
+  | { success: true; text: string }
+  | { success: true; attribute: string | null }
+  | { pong: boolean };
 
 interface ResponseMessage {
   type: 'response';
   id: string;
-  data: unknown;
+  data: ContentHandlerResult | null;
   error?: string;
 }
 
-function sendResponse(id: string, data: unknown, error?: string) {
+function sendResponse(id: string, data: ContentHandlerResult | null, error?: string) {
   const response: ResponseMessage = {
     type: 'response',
     id,
@@ -41,7 +53,7 @@ function sendResponse(id: string, data: unknown, error?: string) {
   browser.runtime.sendMessage(response);
 }
 
-const handlers: Record<string, (message: ContentMessage) => Promise<unknown>> = {
+const handlers: Record<string, (message: ContentMessage) => Promise<ContentHandlerResult>> = {
   click: async (msg) => Interactions.click(msg.selector!, msg.options as any),
   click_at: async (msg) => Interactions.clickAt(msg.x!, msg.y!, msg.options as any),
   fill: async (msg) => Interactions.fill(msg.selector!, msg.value!, msg.options as any),

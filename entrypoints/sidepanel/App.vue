@@ -149,7 +149,7 @@ async function sendChatMessage() {
   }
 }
 
-async function executeToolCall(toolCall: { name: string; parameters: Record<string, unknown> }) {
+async function executeToolCall(toolCall: { name: string; parameters: Record<string, import('@/types').JsonValue> }) {
   const { name, parameters } = toolCall;
 
   try {

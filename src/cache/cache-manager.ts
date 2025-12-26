@@ -2,6 +2,8 @@
  * Cache Manager with TTL and Size Limits
  */
 
+import type { ElementInfo, PageContent } from '../content/page-info';
+
 export interface CacheEntry<T> {
   value: T;
   timestamp: number;
@@ -250,12 +252,12 @@ export class CacheManager<T = unknown> {
 /**
  * Global cache instances
  */
-export const elementCache = new CacheManager<{ selector: string; info: unknown }>({
+export const elementCache = new CacheManager<{ selector: string; info: ElementInfo }>({
   maxSize: 50,
   defaultTTL: 60 * 1000, // 1 minute
 });
 
-export const pageContentCache = new CacheManager<unknown>({
+export const pageContentCache = new CacheManager<PageContent>({
   maxSize: 20,
   defaultTTL: 30 * 1000, // 30 seconds
 });

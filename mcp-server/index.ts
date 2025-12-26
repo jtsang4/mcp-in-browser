@@ -16,6 +16,9 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import WebSocket from 'ws';
 
+// JSON-compatible value type
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 // WebSocket bridge connection
 const BRIDGE_PORT = 37373;
 let bridgeWs: WebSocket | null = null;
@@ -283,7 +286,7 @@ const TOOLS: Tool[] = [
 /**
  * Send a message to the Chrome extension via the WebSocket bridge
  */
-async function sendExtensionMessage(toolName: string, params: Record<string, unknown>): Promise<unknown> {
+async function sendExtensionMessage(toolName: string, params: Record<string, JsonValue>): Promise<JsonValue> {
   return new Promise((resolve, reject) => {
     const id = `${Date.now()}-${Math.random().toString(36).substring(2)}`;
 
@@ -360,7 +363,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    const result = await sendExtensionMessage(name, args || {});
+    const result = await sendExtensionMessage(name, (args || {}) as Record<string, JsonValue>);
 
     return {
       content: [

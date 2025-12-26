@@ -2,9 +2,10 @@ import { logger } from '../core/logger';
 import { AppError, ErrorCode } from '../core/errors';
 import { Schemas } from '../core/validator';
 import { browser, type Browser } from 'wxt/browser';
+import type { JsonValue } from '../../types';
 
-export interface ToolHandler<T = unknown> {
-  (params: Record<string, unknown>): Promise<T>;
+export interface ToolHandler<T = JsonValue> {
+  (params: Record<string, JsonValue>): Promise<T>;
 }
 
 
@@ -101,7 +102,7 @@ export const getPageContentTool: ToolHandler = async (params) => {
   }
 
   const result = await sendToContentScript(tabId, 'get_page_content', {
-    selector: validated.selector,
+    selector: validated.selector ?? null,
   }) as { success: boolean; content?: any; error?: string };
 
   if (result.success && result.content) {
@@ -244,7 +245,7 @@ export const getFormValuesTool: ToolHandler = async (params) => {
   }
 
   const result = await sendToContentScript(tabId, 'get_form_values', {
-    selector: validated.selector,
+    selector: validated.selector ?? null,
   });
 
   return result as { success: boolean; values?: any; error?: string };
@@ -343,10 +344,10 @@ async function getCurrentTab(): Promise<Browser.tabs.Tab | undefined> {
   return tabs[0];
 }
 
-async function sendToContentScript<T = unknown>(
+async function sendToContentScript<T = JsonValue>(
   tabId: number,
   type: string,
-  params: Record<string, unknown>,
+  params: Record<string, JsonValue>,
   timeout = 30000
 ): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -358,7 +359,7 @@ async function sendToContentScript<T = unknown>(
     }, timeout);
 
     const listener = (
-      message: { type: string; id?: string; data?: unknown; error?: string },
+      message: { type: string; id?: string; data?: JsonValue; error?: string },
       sender: Browser.runtime.MessageSender
     ) => {
       if (message.type === 'response' && message.id === id) {

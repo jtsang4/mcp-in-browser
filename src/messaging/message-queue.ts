@@ -8,15 +8,15 @@ import type { AppConfig } from '../core/config';
 
 export interface PendingRequest<T = unknown> {
   id: string;
-  resolve: (value: unknown) => void;
+  resolve: (value: T | PromiseLike<T>) => void;
   reject: (error: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
   timestamp: number;
-  data?: Record<string, unknown>;
+  data?: Record<string, string | number | boolean | null>;
 }
 
 export class MessageQueue {
-  private pending = new Map<string, PendingRequest>();
+  private pending = new Map<string, PendingRequest<unknown>>();
   private config: Pick<AppConfig, 'bridge'> = {
     bridge: {
       url: 'ws://localhost:37373',
@@ -37,7 +37,7 @@ export class MessageQueue {
     this.config = config;
   }
 
-  create<T>(timeoutMs: number, data?: Record<string, unknown>): PendingRequest<T> {
+  create<T>(timeoutMs: number, data?: Record<string, string | number | boolean | null>): PendingRequest<T> {
     // Clean up expired requests
     this.cleanup();
 
@@ -61,8 +61,8 @@ export class MessageQueue {
       data,
     };
 
-    this.pending.set(id, request);
-    logger.debug('MessageQueue', `Created pending request ${id}`, data);
+    this.pending.set(id, request as PendingRequest<unknown>);
+    logger.debug('MessageQueue', `Created pending request ${id}`, data as Record<string, string | number | boolean | null>);
 
     return request;
   }

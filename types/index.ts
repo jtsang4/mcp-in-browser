@@ -1,8 +1,23 @@
+// JSON Schema type for tool input definitions
+export interface JsonSchema {
+  type?: string;
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  description?: string;
+  items?: JsonSchema;
+  enum?: (string | number | boolean)[];
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  [key: string]: JsonSchema | string | number | boolean | string[] | (string | number | boolean)[] | Record<string, JsonSchema> | undefined;
+}
+
 // MCP Tool definitions for Chrome automation
 export interface ChromeTool {
   name: string;
   description: string;
-  inputSchema: Record<string, unknown>;
+  inputSchema: JsonSchema;
 }
 
 export interface TabInfo {
@@ -54,10 +69,26 @@ export interface ActivateTabInput {
   tabId: number;
 }
 
+// JSON-compatible value type (strict)
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonArray = JsonValue[];
+export type JsonObject = { [key: string]: JsonValue };
+export type JsonValue = JsonPrimitive | JsonArray | JsonObject;
+
+// Serializable value type (allows undefined and interface types)
+export type SerializableValue = 
+  | string 
+  | number 
+  | boolean 
+  | null 
+  | undefined 
+  | SerializableValue[] 
+  | { [key: string]: SerializableValue };
+
 // Tool outputs
 export interface ToolResult {
   success: boolean;
-  data?: unknown;
+  data?: JsonValue;
   error?: string;
 }
 
@@ -80,13 +111,13 @@ export interface ScreenshotResult {
 export interface ExtensionMessage {
   type: 'tool_call' | 'tool_result' | 'keep_alive';
   tool?: string;
-  params?: Record<string, unknown>;
+  params?: Record<string, JsonValue>;
   id?: string;
 }
 
 export interface ExtensionResponse {
   success: boolean;
-  data?: unknown;
+  data?: JsonValue;
   error?: string;
   id?: string;
 }

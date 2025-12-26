@@ -7,13 +7,14 @@ import { logger } from '../core/logger';
 import { AppError, ErrorCode } from '../core/errors';
 import { generateId } from '../core/id-generator';
 import type { AppConfig } from '../core/config';
+import type { JsonValue } from '../../types';
 
 export interface BridgeMessage {
   type: 'hello' | 'tool_call' | 'response' | 'error';
   id?: string;
   tool?: string;
-  params?: Record<string, unknown>;
-  data?: unknown;
+  params?: Record<string, JsonValue>;
+  data?: JsonValue | null;
   error?: string;
   client?: 'extension' | 'mcp-server';
   status?: string;
@@ -28,7 +29,7 @@ export class BridgeClient {
   private reconnectAttempts = 0;
   private messageQueue: string[] = [];
   private pendingRequests = new Map<string, {
-    resolve: (value: unknown) => void;
+    resolve: (value: JsonValue | null) => void;
     reject: (error: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
   }>();
@@ -174,7 +175,7 @@ export class BridgeClient {
           if (message.error) {
             pending.reject(new Error(message.error));
           } else {
-            pending.resolve(message.data);
+            pending.resolve(message.data ?? null);
           }
         }
         return;
@@ -198,8 +199,8 @@ export class BridgeClient {
     }
   }
 
-  private handleError(error: unknown) {
-    logger.error('BridgeClient', 'WebSocket error', { error });
+  private handleError(event: WebSocket.ErrorEvent) {
+    logger.error('BridgeClient', 'WebSocket error', { error: event.message });
     this.isConnected = false;
   }
 
@@ -293,7 +294,7 @@ export class BridgeClient {
 
   async sendRequest<T>(
     tool: string,
-    params: Record<string, unknown>,
+    params: Record<string, JsonValue>,
     timeout = 30000
   ): Promise<T> {
     if (!this.isConnected) {
@@ -309,7 +310,7 @@ export class BridgeClient {
       }, timeout);
 
       this.pendingRequests.set(id, {
-        resolve: resolve as (value: unknown) => void,
+        resolve: resolve as (value: JsonValue | null) => void,
         reject,
         timeout: timeoutHandle,
       });
@@ -323,7 +324,7 @@ export class BridgeClient {
     });
   }
 
-  sendResponse(id: string, data: unknown, error?: string) {
+  sendResponse(id: string, data: JsonValue | null, error?: string) {
     this.sendMessage({
       type: 'response',
       id,

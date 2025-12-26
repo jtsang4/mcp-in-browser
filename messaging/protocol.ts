@@ -23,7 +23,7 @@ interface ProtocolMap {
   query_selector_all: (input: { selector: string; tabId?: number }) => Promise<ToolResult & { elements?: string[] }>;
 
   // Form helpers
-  get_form_values: (input: { selector?: string; tabId?: number }) => Promise<ToolResult & { values?: Record<string, unknown> }>;
+  get_form_values: (input: { selector?: string; tabId?: number }) => Promise<ToolResult & { values?: Record<string, FormDataEntryValue | FormDataEntryValue[]> }>;
 
   // Content script health check
   ping: (tabId: number) => Promise<boolean>;

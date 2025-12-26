@@ -10,6 +10,7 @@ import { getTool, getToolNames, type ToolDefinition } from './tools';
 import { generateId } from '../core/id-generator';
 import { handleError } from '../core/errors';
 import { browser, type Browser } from 'wxt/browser';
+import type { JsonValue } from '../../types';
 
 
 // Global state
@@ -93,10 +94,10 @@ async function handleToolCallFromBridge(message: any) {
 /**
  * Send message to content script
  */
-export async function sendToContentScript<T = unknown>(
+export async function sendToContentScript<T = JsonValue>(
   tabId: number,
   type: string,
-  params: Record<string, unknown>,
+  params: Record<string, JsonValue>,
   timeout = 30000
 ): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -114,7 +115,7 @@ export async function sendToContentScript<T = unknown>(
     }, timeout);
 
     const listener = (
-      message: { type: string; id?: string; data?: unknown; error?: string },
+      message: { type: string; id?: string; data?: JsonValue; error?: string },
       sender: Browser.runtime.MessageSender
     ) => {
       if (message.type === 'response' && message.id === id) {

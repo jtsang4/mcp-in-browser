@@ -135,7 +135,7 @@ export class PageInfo {
   /**
    * Get form values
    */
-  static getFormValues(selector?: string): Record<string, unknown> {
+  static getFormValues(selector?: string): Record<string, FormDataEntryValue | FormDataEntryValue[]> {
     const form = selector
       ? document.querySelector(selector) as HTMLFormElement
       : document.querySelector('form') as HTMLFormElement;
@@ -145,14 +145,14 @@ export class PageInfo {
     }
 
     const formData = new FormData(form);
-    const values: Record<string, unknown> = {};
+    const values: Record<string, FormDataEntryValue | FormDataEntryValue[]> = {};
 
     formData.forEach((value, key) => {
       if (values[key]) {
         if (Array.isArray(values[key])) {
-          (values[key] as unknown[]).push(value);
+          (values[key] as FormDataEntryValue[]).push(value);
         } else {
-          values[key] = [values[key], value];
+          values[key] = [values[key] as FormDataEntryValue, value];
         }
       } else {
         values[key] = value;
