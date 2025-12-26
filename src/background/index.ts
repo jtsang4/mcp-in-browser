@@ -2,7 +2,7 @@
  * Background Script - Modular Entry Point
  */
 
-import { loadConfig, saveConfig } from '../core/config';
+import { loadConfig, saveConfig, defaultConfig } from '../core/config';
 import { logger, LogLevel } from '../core/logger';
 import { createBridgeClient } from '../bridge/client';
 import { globalTaskQueue } from '../concurrency/task-queue';
@@ -13,13 +13,14 @@ import { browser } from 'wxt/browser';
 
 // Global state
 let bridgeClient: ReturnType<typeof createBridgeClient> | null = null;
-let config = await loadConfig();
+let config = defaultConfig;
 let currentRequestId: string | null = null;
 
 /**
  * Initialize the background script
  */
 export async function initialize() {
+  config = await loadConfig();
   logger.setConfig({ logging: config.logging });
   logger.info('Background', 'Initializing MCP in Browser extension');
 

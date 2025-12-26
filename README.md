@@ -89,51 +89,29 @@ Then load the extension - you should see:
 [Bridge] Extension client registered
 ```
 
-### 4. Configure MCP Server for Claude Code
+### 4. Configure MCP Server for Claude Desktop
 
-Add to your Claude Code settings (`~/.config/claude-code/config.json` or similar):
+Add the following to your Claude Desktop configuration file:
 
-**Option 1: Using tsx directly (Recommended)**
-
-```json
-{
-  "mcpServers": {
-    "mcp-in-browser": {
-      "command": "tsx",
-      "args": ["/Users/jtsang/Documents/playground/claude-in-chrome/mcp-server/index.ts"]
-    }
-  }
-}
-```
-
-**Option 2: Using pnpm**
-
-```json
-{
-  "mcpServers": {
-    "mcp-in-browser": {
-      "command": "pnpm",
-      "args": ["run", "mcp-server"],
-      "cwd": "/Users/jtsang/Documents/playground/claude-in-chrome"
-    }
-  }
-}
-```
-
-**Option 3: Using npx (no installation needed)**
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "mcp-in-browser": {
       "command": "npx",
-      "args": ["-y", "tsx", "/Users/jtsang/Documents/playground/claude-in-chrome/mcp-server/index.ts"]
+      "args": [
+        "-y",
+        "tsx",
+        "/absolute/path/to/mcp-in-browser/mcp-server/index.ts"
+      ]
     }
   }
 }
 ```
 
-> **Note**: Replace `/Users/jtsang/Documents/playground/claude-in-chrome` with your actual project path.
+> **Important**: Replace `/absolute/path/to/mcp-in-browser` with the actual full path to this project directory on your machine.
 
 ## Usage Flow
 
