@@ -2,6 +2,8 @@
  * Page Information Utilities
  */
 
+import type { JsonValue } from '../../types';
+
 export interface PageContent {
   url: string;
   title: string;
@@ -9,6 +11,7 @@ export interface PageContent {
   text?: string;
   selectedContent?: string;
   timestamp: number;
+  [key: string]: JsonValue | undefined;
 }
 
 export interface ElementInfo {
@@ -28,6 +31,7 @@ export interface ElementInfo {
     right: number;
   };
   visible: boolean;
+  [key: string]: JsonValue | undefined;
 }
 
 export class PageInfo {

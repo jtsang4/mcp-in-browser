@@ -35,6 +35,7 @@ export interface PageContent {
   url: string;
   text?: string;
   html?: string;
+  [key: string]: JsonValue | undefined;
 }
 
 export interface ElementInfo {
@@ -42,4 +43,5 @@ export interface ElementInfo {
   text?: string;
   attributes?: Record<string, string>;
   visible?: boolean;
+  [key: string]: JsonValue | undefined;
 }

@@ -3,6 +3,7 @@ import { AppError, ErrorCode } from '../core/errors';
 import { Schemas } from '../core/validator';
 import { browser, type Browser } from 'wxt/browser';
 import type { JsonValue } from '../../types';
+import { sendMessage } from '../../entrypoints/messaging/protocol';
 
 export interface ToolHandler<T = JsonValue> {
   (params: Record<string, JsonValue>): Promise<T>;
@@ -24,14 +25,10 @@ export const navigateTool: ToolHandler = async (params) => {
 
   logger.info('Tool:navigate', 'Navigating to URL', { url: validated.url });
 
-  if (validated.tabId) {
-    await browser.tabs.update(validated.tabId, { url: validated.url });
-    await browser.tabs.update(validated.tabId, { active: true });
-  } else {
-    await browser.tabs.create({ url: validated.url });
-  }
-
-  return { success: true };
+  return await sendMessage('navigate', {
+    url: validated.url,
+    tabId: validated.tabId,
+  });
 };
 
 /**
@@ -39,17 +36,11 @@ export const navigateTool: ToolHandler = async (params) => {
  */
 export const clickTool: ToolHandler = async (params) => {
   const validated = Schemas.click.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
 
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'click', {
+  return await sendMessage('click', {
     selector: validated.selector,
+    tabId: validated.tabId,
   });
-
-  return result as { success: boolean; error?: string };
 };
 
 /**
@@ -57,18 +48,12 @@ export const clickTool: ToolHandler = async (params) => {
  */
 export const clickAtTool: ToolHandler = async (params) => {
   const validated = Schemas.clickAt.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
 
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'click_at', {
+  return await sendMessage('click_at', {
     x: validated.x,
     y: validated.y,
+    tabId: validated.tabId,
   });
-
-  return result as { success: boolean; error?: string };
 };
 
 /**
@@ -76,18 +61,12 @@ export const clickAtTool: ToolHandler = async (params) => {
  */
 export const fillTool: ToolHandler = async (params) => {
   const validated = Schemas.fill.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
 
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'fill', {
+  return await sendMessage('fill', {
     selector: validated.selector,
     value: validated.value,
+    tabId: validated.tabId,
   });
-
-  return result as { success: boolean; error?: string };
 };
 
 /**
@@ -95,15 +74,11 @@ export const fillTool: ToolHandler = async (params) => {
  */
 export const getPageContentTool: ToolHandler = async (params) => {
   const validated = Schemas.getPageContent.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
 
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'get_page_content', {
-    selector: validated.selector ?? null,
-  }) as { success: boolean; content?: any; error?: string };
+  const result = await sendMessage('get_page_content', {
+    selector: validated.selector,
+    tabId: validated.tabId,
+  });
 
   if (result.success && result.content) {
     result.content = {
@@ -112,7 +87,7 @@ export const getPageContentTool: ToolHandler = async (params) => {
     };
   }
 
-  return result;
+  return result as JsonValue;
 };
 
 /**
@@ -120,33 +95,12 @@ export const getPageContentTool: ToolHandler = async (params) => {
  */
 export const screenshotTool: ToolHandler = async (params) => {
   const validated = Schemas.screenshot.parse(params);
-  let tab: Browser.tabs.Tab | undefined;
 
-  if (validated.tabId !== undefined) {
-    tab = await browser.tabs.get(validated.tabId);
-  } else {
-    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-    tab = tabs[0];
-  }
-
-  if (!tab?.windowId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab or window found');
-  }
-
-  const window = await browser.windows.get(tab.windowId);
-  const dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, {
-    format: validated.format || 'png',
-    quality: validated.quality || 90,
-  });
-
-  return {
-    success: true,
-    screenshot: {
-      dataUrl,
-      width: window.width || 0,
-      height: window.height || 0,
-    },
-  };
+  return await sendMessage('screenshot', {
+    tabId: validated.tabId,
+    format: validated.format,
+    quality: validated.quality,
+  }) as JsonValue;
 };
 
 /**
@@ -154,15 +108,10 @@ export const screenshotTool: ToolHandler = async (params) => {
  */
 export const listTabsTool: ToolHandler = async (params) => {
   const validated = Schemas.listTabs.parse(params);
-  const query = validated.activeOnly ? { active: true } : {};
-  const tabs = await browser.tabs.query(query);
 
-  return tabs.map((tab) => ({
-    id: tab.id!,
-    url: tab.url || '',
-    title: tab.title || '',
-    active: tab.active,
-  }));
+  return await sendMessage('list_tabs', {
+    activeOnly: validated.activeOnly,
+  }) as JsonValue;
 };
 
 /**
@@ -170,13 +119,10 @@ export const listTabsTool: ToolHandler = async (params) => {
  */
 export const activateTabTool: ToolHandler = async (params) => {
   const validated = Schemas.activateTab.parse(params);
-  const tabId: number = validated.tabId;
 
-  await browser.tabs.update(tabId, { active: true });
-  const tab = await browser.tabs.get(tabId);
-  await browser.windows.update(tab.windowId!, { focused: true });
-
-  return { success: true };
+  return await sendMessage('activate_tab', {
+    tabId: validated.tabId,
+  }) as JsonValue;
 };
 
 /**
@@ -185,16 +131,9 @@ export const activateTabTool: ToolHandler = async (params) => {
 export const reloadTool: ToolHandler = async (params) => {
   const validated = Schemas.reload.parse(params);
 
-  if (validated.tabId) {
-    await browser.tabs.reload(validated.tabId);
-  } else {
-    const tab = await getCurrentTab();
-    if (tab?.id) {
-      await browser.tabs.reload(tab.id);
-    }
-  }
-
-  return { success: true };
+  return await sendMessage('reload', {
+    tabId: validated.tabId,
+  }) as JsonValue;
 };
 
 /**
@@ -202,17 +141,11 @@ export const reloadTool: ToolHandler = async (params) => {
  */
 export const querySelectorTool: ToolHandler = async (params) => {
   const validated = Schemas.querySelector.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
 
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'query_selector', {
+  return await sendMessage('query_selector', {
     selector: validated.selector,
-  });
-
-  return result as { success: boolean; element?: any; error?: string };
+    tabId: validated.tabId,
+  }) as JsonValue;
 };
 
 /**
@@ -220,17 +153,11 @@ export const querySelectorTool: ToolHandler = async (params) => {
  */
 export const querySelectorAllTool: ToolHandler = async (params) => {
   const validated = Schemas.querySelectorAll.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
 
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'query_selector_all', {
+  return await sendMessage('query_selector_all', {
     selector: validated.selector,
-  });
-
-  return result as { success: boolean; elements?: any[]; error?: string };
+    tabId: validated.tabId,
+  }) as JsonValue;
 };
 
 /**
@@ -238,17 +165,11 @@ export const querySelectorAllTool: ToolHandler = async (params) => {
  */
 export const getFormValuesTool: ToolHandler = async (params) => {
   const validated = Schemas.getFormValues.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
 
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'get_form_values', {
-    selector: validated.selector ?? null,
-  });
-
-  return result as { success: boolean; values?: any; error?: string };
+  return await sendMessage('get_form_values', {
+    selector: validated.selector,
+    tabId: validated.tabId,
+  }) as JsonValue;
 };
 
 
@@ -329,60 +250,6 @@ export const TOOLS: Record<string, ToolDefinition> = {
     schema: Schemas.getFormValues,
   },
 };
-
-/**
- * Helper functions
- */
-
-async function getCurrentTabId(): Promise<number | undefined> {
-  const tab = await getCurrentTab();
-  return tab?.id;
-}
-
-async function getCurrentTab(): Promise<Browser.tabs.Tab | undefined> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  return tabs[0];
-}
-
-async function sendToContentScript<T = JsonValue>(
-  tabId: number,
-  type: string,
-  params: Record<string, JsonValue>,
-  timeout = 30000
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const id = `msg-${Date.now()}-${Math.random().toString(36).substring(2)}`;
-
-    const timeoutHandle = setTimeout(() => {
-      browser.runtime.onMessage.removeListener(listener);
-      reject(new Error('Content script response timeout'));
-    }, timeout);
-
-    const listener = (
-      message: { type: string; id?: string; data?: JsonValue; error?: string },
-      sender: Browser.runtime.MessageSender
-    ) => {
-      if (message.type === 'response' && message.id === id) {
-        browser.runtime.onMessage.removeListener(listener);
-        clearTimeout(timeoutHandle);
-
-        if (message.error) {
-          reject(new Error(message.error));
-        } else {
-          resolve(message.data as T);
-        }
-      }
-    };
-
-    browser.runtime.onMessage.addListener(listener);
-
-    browser.tabs.sendMessage(tabId, { type, id, ...params }).catch((error) => {
-      browser.runtime.onMessage.removeListener(listener);
-      clearTimeout(timeoutHandle);
-      reject(error);
-    });
-  });
-}
 
 export function getTool(name: string): ToolDefinition | undefined {
   return TOOLS[name];

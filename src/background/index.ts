@@ -11,6 +11,10 @@ import { generateId } from '../core/id-generator';
 import { handleError } from '../core/errors';
 import { browser, type Browser } from 'wxt/browser';
 import type { JsonValue } from '../../types';
+import { sendMessage } from '../../entrypoints/messaging/protocol';
+
+// Register background message handlers
+import '../../entrypoints/messaging/background-handlers';
 
 
 // Global state
@@ -92,58 +96,22 @@ async function handleToolCallFromBridge(message: any) {
 }
 
 /**
- * Send message to content script
+ * Send message to content script (deprecated - use sendMessage from protocol)
+ * This is kept for backward compatibility but should be removed
  */
 export async function sendToContentScript<T = JsonValue>(
-  tabId: number,
+  _tabId: number,
   type: string,
-  params: Record<string, JsonValue>,
-  timeout = 30000
+  _params: Record<string, JsonValue>,
+  _timeout = 30000
 ): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const id = generateId('msg');
-
-    logger.debug('Background', `Sending message to content script`, {
-      tabId,
-      type,
-      id,
-    });
-
-    const timeoutHandle = setTimeout(() => {
-      browser.runtime.onMessage.removeListener(listener);
-      reject(new Error('Content script response timeout'));
-    }, timeout);
-
-    const listener = (
-      message: { type: string; id?: string; data?: JsonValue; error?: string },
-      sender: Browser.runtime.MessageSender
-    ) => {
-      if (message.type === 'response' && message.id === id) {
-        browser.runtime.onMessage.removeListener(listener);
-        clearTimeout(timeoutHandle);
-
-        if (message.error) {
-          reject(new Error(message.error));
-        } else {
-          resolve(message.data as T);
-        }
-
-        logger.debug('Background', `Received response from content script`, {
-          tabId,
-          type,
-          id,
-        });
-      }
-    };
-
-    browser.runtime.onMessage.addListener(listener);
-
-    browser.tabs.sendMessage(tabId, { type, id, ...params }).catch((error) => {
-      browser.runtime.onMessage.removeListener(listener);
-      clearTimeout(timeoutHandle);
-      reject(error);
-    });
-  });
+  // Use the unified messaging protocol
+  // Note: tab-specific routing is not fully supported with @webext-core/messaging
+  // The message will be broadcast to all tabs
+  if (type === 'ping') {
+    return await sendMessage('ping') as T;
+  }
+  throw new Error(`sendToContentScript called with unsupported type: ${type}`);
 }
 
 /**
@@ -161,19 +129,9 @@ function setupContentScriptHealthCheck() {
   // Ping active tabs periodically to check content script status
   setInterval(async () => {
     try {
-      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-      if (tabs[0]?.id) {
-        const result = await sendToContentScript<{ pong: boolean }>(
-          tabs[0].id,
-          'ping',
-          {},
-          5000
-        );
-        if (!result.pong) {
-          logger.warn('Background', 'Content script not responding', {
-            tabId: tabs[0].id,
-          });
-        }
+      const result = await sendMessage('ping');
+      if (!result.pong) {
+        logger.warn('Background', 'Content script not responding');
       }
     } catch (error) {
       logger.debug('Background', 'Health check failed', { error });
@@ -186,7 +144,7 @@ function setupContentScriptHealthCheck() {
  */
 export async function ensureContentScriptInjected(tabId: number): Promise<boolean> {
   try {
-    await sendToContentScript(tabId, 'ping', {}, 5000);
+    await sendMessage('ping');
     return true;
   } catch (error) {
     logger.info('Background', 'Re-injecting content script', { tabId });
