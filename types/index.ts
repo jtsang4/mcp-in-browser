@@ -1,33 +1,18 @@
-// JSON Schema type for tool input definitions
-export interface JsonSchema {
+// Core JSON-compatible value type
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+// Basic JSON Schema type
+export type JsonSchema = {
   type?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
-  description?: string;
   items?: JsonSchema;
-  enum?: (string | number | boolean)[];
-  minimum?: number;
-  maximum?: number;
-  minLength?: number;
-  maxLength?: number;
-  [key: string]: JsonSchema | string | number | boolean | string[] | (string | number | boolean)[] | Record<string, JsonSchema> | undefined;
-}
+  enum?: (string | number)[];
+  description?: string;
+  [key: string]: unknown;
+};
 
-// MCP Tool definitions for Chrome automation
-export interface ChromeTool {
-  name: string;
-  description: string;
-  inputSchema: JsonSchema;
-}
-
-export interface TabInfo {
-  id: number;
-  url: string;
-  title: string;
-  active: boolean;
-}
-
-// Tool input schemas
+// Tool input schemas (will be moved to tools.ts in Task 2.2)
 export interface NavigateInput {
   url: string;
   tabId?: number;
@@ -69,23 +54,7 @@ export interface ActivateTabInput {
   tabId: number;
 }
 
-// JSON-compatible value type (strict)
-export type JsonPrimitive = string | number | boolean | null;
-export type JsonArray = JsonValue[];
-export type JsonObject = { [key: string]: JsonValue };
-export type JsonValue = JsonPrimitive | JsonArray | JsonObject;
-
-// Serializable value type (allows undefined and interface types)
-export type SerializableValue = 
-  | string 
-  | number 
-  | boolean 
-  | null 
-  | undefined 
-  | SerializableValue[] 
-  | { [key: string]: SerializableValue };
-
-// Tool outputs
+// Tool outputs (will be moved to appropriate files in Task 2.2)
 export interface ToolResult {
   success: boolean;
   data?: JsonValue;
@@ -107,17 +76,16 @@ export interface ScreenshotResult {
   height: number;
 }
 
-// Extension message types
-export interface ExtensionMessage {
-  type: 'tool_call' | 'tool_result' | 'keep_alive';
-  tool?: string;
-  params?: Record<string, JsonValue>;
-  id?: string;
+export interface TabInfo {
+  id: number;
+  url: string;
+  title: string;
+  active: boolean;
 }
 
-export interface ExtensionResponse {
-  success: boolean;
-  data?: JsonValue;
-  error?: string;
-  id?: string;
-}
+// Re-export from other type files for backward compatibility
+// These will be removed in Task 2.2 when imports are updated
+export type { BridgeMessage, BridgeClientType, BridgeClientConfig } from './bridge';
+export type { ContentMessage, ContentHandlerResult, ResponseMessage, ElementInfo } from './messaging';
+export type { ToolHandler, ToolDefinition } from './tools';
+export type { LoggingConfig, BridgeConfig, AppConfig, getDefaultConfig } from './config';
