@@ -10,13 +10,9 @@ export default defineConfig({
       'tabs',
       'activeTab',
       'storage',
-      'sidePanel',
       'scripting',
     ],
     host_permissions: ['<all_urls>'],
-    side_panel: {
-      default_path: 'sidepanel.html',
-    },
   },
   webExt: {
     disabled: false,
