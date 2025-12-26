@@ -11,6 +11,7 @@ import { generateId } from '../core/id-generator';
 import { handleError } from '../core/errors';
 import { browser } from 'wxt/browser';
 
+
 // Global state
 let bridgeClient: ReturnType<typeof createBridgeClient> | null = null;
 let config = defaultConfig;
@@ -282,12 +283,4 @@ export function shutdown() {
 
 
 
-// Export for WXT
-export default defineBackground(() => {
-  console.log('[Background] MCP in Browser initialized');
-  initialize();
-});
 
-// Add type definition for WXT's defineBackground
-declare function defineBackground(fn: () => void | Promise<void>): void;
-declare function defineContentScript(config: any): void;
