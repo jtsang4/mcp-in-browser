@@ -8,11 +8,12 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { initialize } from '../src/background';
 
 // Initialize the modular background system
-initialize().catch((error) => {
-  console.error('[Background] Failed to initialize:', error);
-});
-
 export default defineBackground(() => {
   console.log('[Background] MCP in Browser initialized');
+  
+  // Initialize the modular background system within the service worker context
+  initialize().catch((error) => {
+    console.error('[Background] Failed to initialize:', error);
+  });
 });
 

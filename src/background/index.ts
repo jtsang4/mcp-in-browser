@@ -279,10 +279,7 @@ export function shutdown() {
   logger.clearHistory();
 }
 
-// Initialize on load
-initialize().catch((error) => {
-  logger.error('Background', 'Failed to initialize', { error });
-});
+
 
 // Export for WXT
 export default defineBackground(() => {

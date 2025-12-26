@@ -1,3 +1,3 @@
 # AGENTS.md
 
-@CLAUDE.md
+Please read @CLAUDE.md
