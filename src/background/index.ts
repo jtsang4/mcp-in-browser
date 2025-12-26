@@ -6,7 +6,7 @@ import { loadConfig, saveConfig, defaultConfig } from '../core/config';
 import { logger, LogLevel } from '../core/logger';
 import { createBridgeClient } from '../bridge/client';
 import { globalTaskQueue } from '../concurrency/task-queue';
-import { getTool, getToolNames, type ToolDefinition } from './tools';
+import { getTool, getToolNames } from './tools';
 import { generateId } from '../core/id-generator';
 import { handleError } from '../core/errors';
 import { browser, type Browser } from 'wxt/browser';
