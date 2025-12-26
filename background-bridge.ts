@@ -316,5 +316,3 @@ export function isBridgeConnected(): boolean {
   return isConnected && ws?.readyState === WebSocket.OPEN;
 }
 
-// Auto-connect on service worker startup
-connectToBridge();

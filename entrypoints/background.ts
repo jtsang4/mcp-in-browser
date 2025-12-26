@@ -2,9 +2,6 @@ import { onMessage } from '@/messaging/protocol';
 import type { ProtocolMapType } from '@/messaging/protocol';
 import { connectToBridge } from '../background-bridge';
 
-// Initialize the WebSocket bridge connection
-connectToBridge();
-
 // Store for pending responses from content scripts
 const pendingResponses = new Map<string, {
   resolve: (value: unknown) => void;
@@ -286,4 +283,7 @@ onMessage('ping', async ({ data }) => {
 
 export default defineBackground(() => {
   console.log('Claude in Chrome background script initialized', { id: browser.runtime.id });
+  // Initialize the WebSocket bridge connection
+  connectToBridge();
 });
+

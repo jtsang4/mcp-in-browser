@@ -1,3 +1,29 @@
 {
-  "extends": "./.wxt/tsconfig.json"
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@/src/*": ["./src/*"]
+    },
+    "lib": ["ES2022", "DOM"],
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.vue",
+    "src/**/*",
+    "entrypoints/**/*",
+    "mcp-server/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    ".wxt",
+    ".output",
+    "dist"
+  ]
 }
