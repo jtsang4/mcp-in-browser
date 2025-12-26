@@ -14,58 +14,31 @@ import {
   ListToolsRequestSchema,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import WebSocket from 'ws';
+import { BridgeClient, createBridgeClient } from '../shared/bridge/client';
+import type { BridgeMessage } from '../types/bridge';
+import type { JsonValue } from '../types';
 
-// JSON-compatible value type
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+// Use shared BridgeClient
+const bridgeClient = createBridgeClient('mcp-server');
 
-// WebSocket bridge connection
-const BRIDGE_PORT = 37373;
-let bridgeWs: WebSocket | null = null;
-let bridgeReconnectTimer: ReturnType<typeof setInterval> | null = null;
-
-// Connect to the WebSocket bridge
-function connectToBridge() {
-  if (bridgeWs?.readyState === WebSocket.OPEN) {
-    return;
+// Set up message handler for responses
+bridgeClient.setMessageHandler(async (message: BridgeMessage) => {
+  if (message.type === 'response') {
+    // Handle response - this will be managed by sendRequest
   }
+});
 
-  console.error(`[MCP] Connecting to bridge at ws://localhost:${BRIDGE_PORT}...`);
+// Set up connection callbacks
+bridgeClient.onConnected(() => {
+  console.error('[MCP] Connected to bridge');
+});
 
-  bridgeWs = new WebSocket(`ws://localhost:${BRIDGE_PORT}`);
+bridgeClient.onDisconnected(() => {
+  console.error('[MCP] Disconnected from bridge');
+});
 
-  bridgeWs.on('open', () => {
-    console.error(`[MCP] Connected to bridge`);
-    // Identify ourselves as the MCP server
-    bridgeWs?.send(JSON.stringify({ type: 'hello', client: 'mcp-server' }));
-  });
-
-  bridgeWs.on('error', (error) => {
-    console.error(`[MCP] Bridge connection error:`, error.message);
-  });
-
-  bridgeWs.on('close', () => {
-    console.error(`[MCP] Bridge connection closed`);
-    bridgeWs = null;
-    // Attempt to reconnect after 2 seconds
-    if (!bridgeReconnectTimer) {
-      bridgeReconnectTimer = setInterval(() => {
-        if (!bridgeWs || bridgeWs.readyState === WebSocket.CLOSED) {
-          console.error(`[MCP] Attempting to reconnect to bridge...`);
-          connectToBridge();
-        } else {
-          if (bridgeReconnectTimer) {
-            clearInterval(bridgeReconnectTimer);
-            bridgeReconnectTimer = null;
-          }
-        }
-      }, 2000);
-    }
-  });
-}
-
-// Start connection
-connectToBridge();
+// Connect to bridge
+bridgeClient.connect();
 
 // Define all available tools
 const TOOLS: Tool[] = [
@@ -287,55 +260,13 @@ const TOOLS: Tool[] = [
  * Send a message to the Chrome extension via the WebSocket bridge
  */
 async function sendExtensionMessage(toolName: string, params: Record<string, JsonValue>): Promise<JsonValue> {
-  return new Promise((resolve, reject) => {
-    const id = `${Date.now()}-${Math.random().toString(36).substring(2)}`;
-
-    // Check if bridge is connected
-    if (!bridgeWs || bridgeWs.readyState !== WebSocket.OPEN) {
-      reject(new Error('Bridge not connected. Please ensure the bridge server is running (pnpm run bridge) and the Chrome extension is connected.'));
-      return;
-    }
-
-    // Set up response handler
-    const responseHandler = (data: Buffer) => {
-      try {
-        const message = JSON.parse(data.toString());
-        if (message.type === 'response' && message.id === id) {
-          bridgeWs?.removeListener('message', responseHandler);
-          if (message.error) {
-            reject(new Error(message.error));
-          } else {
-            resolve(message.data);
-          }
-        }
-      } catch (e) {
-        // Ignore parse errors
-      }
-    };
-
-    bridgeWs.on('message', responseHandler);
-
-    // Set timeout
-    const timeout = setTimeout(() => {
-      bridgeWs?.removeListener('message', responseHandler);
-      reject(new Error('Request timeout'));
-    }, 30000);
-
-    // Send the request
-    bridgeWs.send(JSON.stringify({
-      type: 'tool_call',
-      tool: toolName,
-      params,
-      id,
-    }));
-
-    // Clear timeout when resolved
-    const originalResolve = resolve;
-    resolve = (value) => {
-      clearTimeout(timeout);
-      originalResolve(value);
-    };
-  });
+  try {
+    return await bridgeClient.sendRequest<JsonValue>(toolName, params);
+  } catch (error) {
+    throw new Error(
+      'Bridge not connected. Please ensure the bridge server is running (pnpm run bridge) and the Chrome extension is connected.'
+    );
+  }
 }
 
 // Create MCP server
