@@ -18,7 +18,13 @@
     "postinstall": "wxt prepare",
     "bridge": "tsx mcp-server/bridge.ts",
     "mcp-server": "tsx mcp-server/index.ts",
-    "mcp-server:dev": "tsx watch mcp-server/index.ts"
+    "mcp-server:dev": "tsx watch mcp-server/index.ts",
+    "mcp-server:enhanced": "tsx mcp-server/index-new.ts",
+    "test": "node --experimental-modules mcp-server/tests/run-tests.ts",
+    "test:watch": "node --experimental-modules mcp-server/tests/run-tests.ts --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.vue",
+    "format": "prettier --write \"src/**/*.ts\" \"entrypoints/**/*.ts\" \"mcp-server/**/*.ts\""
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",

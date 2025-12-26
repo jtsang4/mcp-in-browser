@@ -23,26 +23,26 @@ Claude Code → MCP Server → WebSocket Bridge → Extension (background-bridge
 
 ```bash
 # Development (with hot reload)
-npm run dev           # Chrome
-npm run dev:firefox   # Firefox
+pnpm run dev           # Chrome
+pnpm run dev:firefox   # Firefox
 
 # Production builds
-npm run build           # Chrome
-npm run build:firefox   # Firefox
+pnpm run build           # Chrome
+pnpm run build:firefox   # Firefox
 
 # Create distributable packages
-npm run zip             # Chrome
-npm run zip:firefox     # Firefox
+pnpm run zip             # Chrome
+pnpm run zip:firefox     # Firefox
 
 # Type checking
-npm run compile     # Run vue-tsc type checking
+pnpm run compile     # Run vue-tsc type checking
 
 # Bridge server (required for MCP server to communicate with extension)
-npm run bridge
+pnpm run bridge
 
 # MCP server (for testing)
-npm run mcp-server
-npm run mcp-server:dev  # With watch mode
+pnpm run mcp-server
+pnpm run mcp-server:dev  # With watch mode
 ```
 
 ## Architecture
@@ -62,7 +62,7 @@ Each file in `entrypoints/` automatically becomes an extension entry point.
 
 The bridge is a WebSocket server that connects the MCP server (Node.js) with the browser extension:
 
-1. **Start the bridge**: `npm run bridge` - Runs on `ws://localhost:37373`
+1. **Start the bridge**: `pnpm run bridge` - Runs on `ws://localhost:37373`
 2. **Extension connects**: The extension automatically connects to the bridge via `background-bridge.ts`
 3. **MCP server connects**: The MCP server connects to the bridge when started
 
@@ -97,8 +97,8 @@ export default defineContentScript({
 
 Add `-b firefox` or `:firefox` suffix to any command to target Firefox:
 ```bash
-npm run dev:firefox
-npm run build:firefox
+pnpm run dev:firefox
+pnpm run build:firefox
 ```
 
 ### Extension Icons
@@ -124,8 +124,8 @@ This project can leverage **[@webext-core](https://webext-core.aklinker1.io/)** 
 ### Installation
 
 ```bash
-pnpm i @webext-core/storage
-pnpm i @webext-core/messaging
+ppnpm add @webext-core/storage
+ppnpm add @webext-core/messaging
 # etc.
 ```
 
