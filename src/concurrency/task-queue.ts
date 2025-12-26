@@ -8,7 +8,7 @@ import type { AppConfig } from '../core/config';
 export interface QueuedTask<T = unknown> {
   id: string;
   fn: () => Promise<T>;
-  resolve: (value: T) => void;
+  resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   tabId?: number;
   priority?: number;
@@ -44,8 +44,8 @@ export class TaskQueue {
       priority?: number;
     }
   ): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const task: QueuedTask<T> = {
+    return new Promise<T>((resolve, reject) => {
+      const task: QueuedTask = {
         id: `task-${Date.now()}-${Math.random().toString(36).substring(2)}`,
         fn,
         resolve: resolve as (value: unknown) => void,
@@ -55,7 +55,7 @@ export class TaskQueue {
         enqueuedAt: Date.now(),
       };
 
-      this.queue.push(task);
+      this.queue.push(task as QueuedTask<T>);
       this.sortQueue();
       this.process();
     });
@@ -64,8 +64,10 @@ export class TaskQueue {
   private sortQueue() {
     // Sort by priority (higher first) and enqueue time (earlier first)
     this.queue.sort((a, b) => {
-      if (b.priority !== a.priority) {
-        return b.priority - a.priority;
+      const aPriority = a.priority ?? 0;
+      const bPriority = b.priority ?? 0;
+      if (bPriority !== aPriority) {
+        return bPriority - aPriority;
       }
       return a.enqueuedAt - b.enqueuedAt;
     });

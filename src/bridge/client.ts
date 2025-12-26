@@ -7,7 +7,6 @@ import { logger } from '../core/logger';
 import { AppError, ErrorCode } from '../core/errors';
 import { generateId } from '../core/id-generator';
 import type { AppConfig } from '../core/config';
-import { MessageQueue } from '../messaging/message-queue';
 
 export interface BridgeMessage {
   type: 'hello' | 'tool_call' | 'response' | 'error';
@@ -23,7 +22,7 @@ export interface BridgeMessage {
 export type BridgeClientType = 'extension' | 'mcp-server';
 
 export class BridgeClient {
-  private ws: WebSocket | chrome.WebSocket | null = null;
+  private ws: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setInterval> | null = null;
   private isConnected = false;
   private reconnectAttempts = 0;
@@ -74,7 +73,7 @@ export class BridgeClient {
   }
 
   connect() {
-    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === 1)) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       return;
     }
 
@@ -101,10 +100,9 @@ export class BridgeClient {
   /**
    * Check if the WebSocket is ready
    */
-  private isOpen(ws: WebSocket | chrome.WebSocket | null): boolean {
+  private isOpen(ws: WebSocket | null): boolean {
     if (!ws) return false;
-    const readyState = (ws as WebSocket).readyState ?? (ws as any).readyState;
-    return readyState === WebSocket.OPEN || readyState === 1;
+    return ws.readyState === WebSocket.OPEN;
   }
 
   disconnect() {
@@ -245,18 +243,12 @@ export class BridgeClient {
       return false;
     }
 
-    const readyState = (this.ws as WebSocket).readyState ?? (this.ws as chrome.WebSocket).readyState;
-    if (readyState !== WebSocket.OPEN && readyState !== 1) {
+    if (this.ws.readyState !== WebSocket.OPEN) {
       return false;
     }
 
     try {
-      const data = JSON.stringify(message);
-      if (this.ws instanceof WebSocket) {
-        this.ws.send(data);
-      } else {
-        (this.ws as chrome.WebSocket).send?.(data);
-      }
+      this.ws.send(JSON.stringify(message));
       return true;
     } catch (error) {
       logger.error('BridgeClient', 'Failed to send message', { error, message });

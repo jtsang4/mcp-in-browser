@@ -8,7 +8,7 @@ import type { AppConfig } from '../core/config';
 
 export interface PendingRequest<T = unknown> {
   id: string;
-  resolve: (value: T) => void;
+  resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
   timestamp: number;
@@ -67,7 +67,7 @@ export class MessageQueue {
     return request;
   }
 
-  resolve(id: string, value: unknown, error?: Error | null) {
+  resolve<T>(id: string, value: T, error?: Error | null) {
     const request = this.pending.get(id);
     if (!request) {
       logger.warn('MessageQueue', `No pending request found for id ${id}`);
@@ -81,7 +81,7 @@ export class MessageQueue {
       request.reject(error);
       logger.debug('MessageQueue', `Resolved request ${id} with error`, { error: error.message });
     } else {
-      request.resolve(value as any);
+      (request as PendingRequest<T>).resolve(value);
       logger.debug('MessageQueue', `Resolved request ${id} successfully`);
     }
 

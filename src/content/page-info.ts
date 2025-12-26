@@ -53,9 +53,9 @@ export class PageInfo {
 
     // Get text content, but exclude hidden elements
     let text = '';
-    for (const child of element.childNodes) {
+    for (const child of Array.from(element.childNodes)) {
       if (child.nodeType === Node.TEXT_NODE) {
-        text += child.textContent;
+        text += child.textContent || '';
       } else if (child instanceof Element) {
         const style = window.getComputedStyle(child);
         if (style.display !== 'none' && style.visibility !== 'hidden') {

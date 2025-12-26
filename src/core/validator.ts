@@ -89,7 +89,11 @@ export class Schema<T = unknown> {
   }
 
   static object<T extends Record<string, Schema<unknown>>>(shape: T) {
-    return new Schema<{ [K in keyof T]?: T[K] extends Schema<infer V> ? V : never }>((value) => {
+    type Result = {
+      [K in keyof T]: T[K] extends Schema<infer V> ? V : never;
+    };
+
+    return new Schema<Result>((value) => {
       if (typeof value !== 'object' || value === null || Array.isArray(value)) {
         return { success: false, error: 'Expected object' };
       }
@@ -105,7 +109,7 @@ export class Schema<T = unknown> {
         }
       }
 
-      return { success: true, data: result as { [K in keyof T]?: T[K] extends Schema<infer V> ? V : never } };
+      return { success: true, data: result as Result };
     });
   }
 

@@ -52,12 +52,15 @@ export class Interactions {
 
     try {
       const locator = ElementLocator.parse(selector);
+      const locatorValue = typeof locator === 'string' ? locator : locator.value;
 
       let element: Element;
       if (waitForClickable) {
-        element = await WaitFor.clickable(typeof locator === 'string' ? locator : locator.value);
+        const result = await WaitFor.clickable(locatorValue);
+        element = Array.isArray(result) ? result[0] : result;
       } else {
-        element = await WaitFor.element(typeof locator === 'string' ? locator : locator.value);
+        const result = await WaitFor.element(locatorValue);
+        element = Array.isArray(result) ? result[0] : result;
       }
 
       if (scrollIntoView) {
@@ -178,7 +181,9 @@ export class Interactions {
 
     try {
       const locator = ElementLocator.parse(selector);
-      const element = await WaitFor.visible(typeof locator === 'string' ? locator : locator.value);
+      const locatorValue = typeof locator === 'string' ? locator : locator.value;
+      const waitResult = await WaitFor.visible(locatorValue);
+      const element = Array.isArray(waitResult) ? waitResult[0] : waitResult;
 
       if (
         !(
@@ -246,9 +251,10 @@ export class Interactions {
     const { delay = 50, clear = true } = options;
 
     try {
-      const element = await WaitFor.visible(
+      const waitResult = await WaitFor.visible(
         typeof selector === 'string' ? selector : selector.value
       );
+      const element = Array.isArray(waitResult) ? waitResult[0] : waitResult;
 
       if (
         !(
@@ -335,7 +341,9 @@ export class Interactions {
 
     try {
       const locator = ElementLocator.parse(selector);
-      const element = await WaitFor.visible(typeof locator === 'string' ? locator : locator.value);
+      const locatorValue = typeof locator === 'string' ? locator : locator.value;
+      const waitResult = await WaitFor.visible(locatorValue);
+      const element = Array.isArray(waitResult) ? waitResult[0] : waitResult;
 
       if (scrollIntoView) {
         (element as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -374,7 +382,9 @@ export class Interactions {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const locator = ElementLocator.parse(selector);
-      const element = await WaitFor.visible(typeof locator === 'string' ? locator : locator.value);
+      const locatorValue = typeof locator === 'string' ? locator : locator.value;
+      const waitResult = await WaitFor.visible(locatorValue);
+      const element = Array.isArray(waitResult) ? waitResult[0] : waitResult;
 
       if (!(element instanceof HTMLSelectElement)) {
         return { success: false, error: 'Element is not a select' };
@@ -405,7 +415,9 @@ export class Interactions {
   ): Promise<{ success: boolean; text?: string; error?: string }> {
     try {
       const locator = ElementLocator.parse(selector);
-      const element = await WaitFor.element(typeof locator === 'string' ? locator : locator.value);
+      const locatorValue = typeof locator === 'string' ? locator : locator.value;
+      const waitResult = await WaitFor.element(locatorValue);
+      const element = Array.isArray(waitResult) ? waitResult[0] : waitResult;
 
       return { success: true, text: element.textContent?.trim() || '' };
     } catch (error) {
@@ -425,11 +437,13 @@ export class Interactions {
   ): Promise<{ success: boolean; value?: string; error?: string }> {
     try {
       const locator = ElementLocator.parse(selector);
-      const element = await WaitFor.element(typeof locator === 'string' ? locator : locator.value);
+      const locatorValue = typeof locator === 'string' ? locator : locator.value;
+      const waitResult = await WaitFor.element(locatorValue);
+      const element = Array.isArray(waitResult) ? waitResult[0] : waitResult;
 
       return {
         success: true,
-        value: (element as HTMLElement).getAttribute(attribute) || null,
+        value: (element as HTMLElement).getAttribute(attribute) ?? undefined,
       };
     } catch (error) {
       return {

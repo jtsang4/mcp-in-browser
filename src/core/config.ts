@@ -1,6 +1,7 @@
 /**
  * Application Configuration
  */
+import { browser } from 'wxt/browser';
 
 export interface AppConfig {
   bridge: {
@@ -53,7 +54,7 @@ export const defaultConfig: AppConfig = {
 // Load config from storage, merge with defaults
 export async function loadConfig(): Promise<AppConfig> {
   try {
-    const stored = await chrome.storage.local.get('config');
+    const stored = await browser.storage.local.get('config');
     if (stored.config) {
       return { ...defaultConfig, ...stored.config };
     }
@@ -68,7 +69,7 @@ export async function saveConfig(config: Partial<AppConfig>): Promise<void> {
   try {
     const current = await loadConfig();
     const merged = { ...current, ...config };
-    await chrome.storage.local.set({ config: merged });
+    await browser.storage.local.set({ config: merged });
   } catch (error) {
     console.warn('[Config] Failed to save config:', error);
   }

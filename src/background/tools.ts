@@ -5,10 +5,7 @@
 import { logger } from '../core/logger';
 import { AppError, ErrorCode } from '../core/errors';
 import { Schemas } from '../core/validator';
-import { Interactions } from '../content/interactions';
-import { PageInfo } from '../content/page-info';
-import { ElementLocator } from '../content/locators';
-import { WaitFor } from '../content/wait-for';
+import { browser } from 'wxt/browser';
 
 export interface ToolHandler<T = unknown> {
   (params: Record<string, unknown>): Promise<T>;
@@ -30,10 +27,10 @@ export const navigateTool: ToolHandler = async (params) => {
   logger.info('Tool:navigate', 'Navigating to URL', { url: validated.url });
 
   if (validated.tabId) {
-    await chrome.tabs.update(validated.tabId, { url: validated.url });
-    await chrome.tabs.update(validated.tabId, { active: true });
+    await browser.tabs.update(validated.tabId, { url: validated.url });
+    await browser.tabs.update(validated.tabId, { active: true });
   } else {
-    await chrome.tabs.create({ url: validated.url });
+    await browser.tabs.create({ url: validated.url });
   }
 
   return { success: true };
@@ -125,14 +122,21 @@ export const getPageContentTool: ToolHandler = async (params) => {
  */
 export const screenshotTool: ToolHandler = async (params) => {
   const validated = Schemas.screenshot.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTab());
+  let tab: chrome.tabs.Tab | undefined;
 
-  if (!tabId || !tabId.windowId) {
+  if (validated.tabId !== undefined) {
+    tab = await browser.tabs.get(validated.tabId);
+  } else {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    tab = tabs[0];
+  }
+
+  if (!tab?.windowId) {
     throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab or window found');
   }
 
-  const window = await chrome.windows.get(tabId.windowId);
-  const dataUrl = await chrome.tabs.captureVisibleTab(tabId.windowId, {
+  const window = await browser.windows.get(tab.windowId);
+  const dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, {
     format: validated.format || 'png',
     quality: validated.quality || 90,
   });
@@ -153,7 +157,7 @@ export const screenshotTool: ToolHandler = async (params) => {
 export const listTabsTool: ToolHandler = async (params) => {
   const validated = Schemas.listTabs.parse(params);
   const query = validated.activeOnly ? { active: true } : {};
-  const tabs = await chrome.tabs.query(query);
+  const tabs = await browser.tabs.query(query);
 
   return tabs.map((tab) => ({
     id: tab.id!,
@@ -168,10 +172,11 @@ export const listTabsTool: ToolHandler = async (params) => {
  */
 export const activateTabTool: ToolHandler = async (params) => {
   const validated = Schemas.activateTab.parse(params);
+  const tabId: number = validated.tabId;
 
-  await chrome.tabs.update(validated.tabId, { active: true });
-  const tab = await chrome.tabs.get(validated.tabId);
-  await chrome.windows.update(tab.windowId!, { focused: true });
+  await browser.tabs.update(tabId, { active: true });
+  const tab = await browser.tabs.get(tabId);
+  await browser.windows.update(tab.windowId!, { focused: true });
 
   return { success: true };
 };
@@ -183,11 +188,11 @@ export const reloadTool: ToolHandler = async (params) => {
   const validated = Schemas.reload.parse(params);
 
   if (validated.tabId) {
-    await chrome.tabs.reload(validated.tabId);
+    await browser.tabs.reload(validated.tabId);
   } else {
     const tab = await getCurrentTab();
     if (tab?.id) {
-      await chrome.tabs.reload(tab.id);
+      await browser.tabs.reload(tab.id);
     }
   }
 
@@ -248,214 +253,6 @@ export const getFormValuesTool: ToolHandler = async (params) => {
   return result as { success: boolean; values?: any; error?: string };
 };
 
-/**
- * Click an element
- */
-export const clickTool: ToolHandler = async (params) => {
-  const validated = Schemas.click.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
-
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'click', {
-    selector: validated.selector,
-  });
-
-  return result;
-};
-
-/**
- * Click at coordinates
- */
-export const clickAtTool: ToolHandler = async (params) => {
-  const validated = Schemas.clickAt.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
-
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'click_at', {
-    x: validated.x,
-    y: validated.y,
-  });
-
-  return result;
-};
-
-/**
- * Fill an input field
- */
-export const fillTool: ToolHandler = async (params) => {
-  const validated = Schemas.fill.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
-
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'fill', {
-    selector: validated.selector,
-    value: validated.value,
-  });
-
-  return result;
-};
-
-/**
- * Get page content
- */
-export const getPageContentTool: ToolHandler = async (params) => {
-  const validated = Schemas.getPageContent.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
-
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'get_page_content', {
-    selector: validated.selector,
-  });
-
-  if (result.success && result.content) {
-    result.content = {
-      ...result.content,
-      timestamp: Date.now(),
-    };
-  }
-
-  return result;
-};
-
-/**
- * Take a screenshot
- */
-export const screenshotTool: ToolHandler = async (params) => {
-  const validated = Schemas.screenshot.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTab());
-
-  if (!tabId || !tabId.windowId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab or window found');
-  }
-
-  const window = await chrome.windows.get(tabId.windowId);
-  const dataUrl = await chrome.tabs.captureVisibleTab(tabId.windowId, {
-    format: validated.format || 'png',
-    quality: validated.quality || 90,
-  });
-
-  return {
-    success: true,
-    screenshot: {
-      dataUrl,
-      width: window.width || 0,
-      height: window.height || 0,
-    },
-  };
-};
-
-/**
- * List all tabs
- */
-export const listTabsTool: ToolHandler = async (params) => {
-  const validated = Schemas.listTabs.parse(params);
-  const query = validated.activeOnly ? { active: true } : {};
-  const tabs = await chrome.tabs.query(query);
-
-  return tabs.map((tab) => ({
-    id: tab.id!,
-    url: tab.url || '',
-    title: tab.title || '',
-    active: tab.active,
-  }));
-};
-
-/**
- * Activate a tab
- */
-export const activateTabTool: ToolHandler = async (params) => {
-  const validated = Schemas.activateTab.parse(params);
-
-  await chrome.tabs.update(validated.tabId, { active: true });
-  const tab = await chrome.tabs.get(validated.tabId);
-  await chrome.windows.update(tab.windowId!, { focused: true });
-
-  return { success: true };
-};
-
-/**
- * Reload a tab
- */
-export const reloadTool: ToolHandler = async (params) => {
-  const validated = Schemas.reload.parse(params);
-
-  if (validated.tabId) {
-    await chrome.tabs.reload(validated.tabId);
-  } else {
-    const tab = await getCurrentTab();
-    if (tab?.id) {
-      await chrome.tabs.reload(tab.id);
-    }
-  }
-
-  return { success: true };
-};
-
-/**
- * Query a single element
- */
-export const querySelectorTool: ToolHandler = async (params) => {
-  const validated = Schemas.querySelector.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
-
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'query_selector', {
-    selector: validated.selector,
-  });
-
-  return result;
-};
-
-/**
- * Query all matching elements
- */
-export const querySelectorAllTool: ToolHandler = async (params) => {
-  const validated = Schemas.querySelectorAll.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
-
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'query_selector_all', {
-    selector: validated.selector,
-  });
-
-  return result;
-};
-
-/**
- * Get form values
- */
-export const getFormValuesTool: ToolHandler = async (params) => {
-  const validated = Schemas.getFormValues.parse(params);
-  const tabId = validated.tabId ?? (await getCurrentTabId());
-
-  if (!tabId) {
-    throw new AppError(ErrorCode.NO_ACTIVE_TAB, 'No active tab found');
-  }
-
-  const result = await sendToContentScript(tabId, 'get_form_values', {
-    selector: validated.selector,
-  });
-
-  return result;
-};
 
 /**
  * All tool definitions
@@ -545,7 +342,7 @@ async function getCurrentTabId(): Promise<number | undefined> {
 }
 
 async function getCurrentTab(): Promise<chrome.tabs.Tab | undefined> {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   return tabs[0];
 }
 
@@ -559,7 +356,7 @@ async function sendToContentScript<T = unknown>(
     const id = `msg-${Date.now()}-${Math.random().toString(36).substring(2)}`;
 
     const timeoutHandle = setTimeout(() => {
-      chrome.runtime.onMessage.removeListener(listener);
+      browser.runtime.onMessage.removeListener(listener);
       reject(new Error('Content script response timeout'));
     }, timeout);
 
@@ -568,7 +365,7 @@ async function sendToContentScript<T = unknown>(
       sender: chrome.runtime.MessageSender
     ) => {
       if (message.type === 'response' && message.id === id) {
-        chrome.runtime.onMessage.removeListener(listener);
+        browser.runtime.onMessage.removeListener(listener);
         clearTimeout(timeoutHandle);
 
         if (message.error) {
@@ -579,10 +376,10 @@ async function sendToContentScript<T = unknown>(
       }
     };
 
-    chrome.runtime.onMessage.addListener(listener);
+    browser.runtime.onMessage.addListener(listener);
 
-    chrome.tabs.sendMessage(tabId, { type, id, ...params }).catch((error) => {
-      chrome.runtime.onMessage.removeListener(listener);
+    browser.tabs.sendMessage(tabId, { type, id, ...params }).catch((error) => {
+      browser.runtime.onMessage.removeListener(listener);
       clearTimeout(timeoutHandle);
       reject(error);
     });

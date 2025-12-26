@@ -74,24 +74,35 @@ export class WaitFor {
     const elements = await this.element(selector, { all, ...waitOptions });
 
     const checkVisible = (el: Element) => {
+      const htmlEl = el as HTMLElement;
       const style = window.getComputedStyle(el);
       return (
         style.display !== 'none' &&
         style.visibility !== 'hidden' &&
         style.opacity !== '0' &&
-        el.offsetWidth > 0 &&
-        el.offsetHeight > 0
+        htmlEl.offsetWidth > 0 &&
+        htmlEl.offsetHeight > 0
       );
     };
 
     if (all) {
-      const visibleElements = (elements as Element[]).filter(checkVisible);
+      const elementArray = Array.isArray(elements) ? elements : [elements];
+      const visibleElements = elementArray.filter(checkVisible);
       if (visibleElements.length === 0) {
         throw new Error(`No visible elements matching "${selector}" found`);
       }
       return visibleElements;
     } else {
-      if (!checkVisible(elements as Element)) {
+      if (Array.isArray(elements)) {
+        if (elements.length === 0) {
+          throw new Error(`Element "${selector}" not found`);
+        }
+        if (!checkVisible(elements[0])) {
+          throw new Error(`Element "${selector}" is not visible`);
+        }
+        return elements[0];
+      }
+      if (!checkVisible(elements)) {
         throw new Error(`Element "${selector}" is not visible`);
       }
       return elements;
@@ -105,7 +116,8 @@ export class WaitFor {
     selector: string,
     options: WaitForOptions = {}
   ): Promise<Element> {
-    const element = await this.visible(selector, options);
+    const result = await this.visible(selector, options);
+    const element = Array.isArray(result) ? result[0] : result;
 
     const style = window.getComputedStyle(element);
     if (style.pointerEvents === 'none') {
@@ -168,15 +180,22 @@ export class WaitFor {
 
       // Intercept fetch and XMLHttpRequest to track activity
       const originalFetch = window.fetch;
-      window.fetch = (...args) => {
+      window.fetch = (...args: [input: RequestInfo | URL, init?: RequestInit]) => {
         lastActivity = Date.now();
-        return originalFetch.apply(window, args);
+        return originalFetch(...args);
       };
 
       const originalOpen = XMLHttpRequest.prototype.open;
-      XMLHttpRequest.prototype.open = function (...args) {
+      XMLHttpRequest.prototype.open = function (
+        this: XMLHttpRequest,
+        method: string,
+        url: string | URL,
+        async: boolean = true,
+        username?: string | null,
+        password?: string | null
+      ) {
         lastActivity = Date.now();
-        return originalOpen.apply(this, args);
+        return originalOpen.call(this, method, url, async, username, password);
       };
 
       checkIdle();
@@ -258,7 +277,7 @@ export class WaitFor {
         return attrValue?.includes(value) ? element : null;
       },
       {
-        ...waitOptions,
+        ...options,
         message: `Element "${selector}" attribute "${attribute}" did not contain "${value}"`,
       }
     );
@@ -268,7 +287,7 @@ export class WaitFor {
    * Wait for custom condition
    */
   static async custom<T>(
-    condition: () => T | null | false,
+    condition: () => T | null,
     options: WaitForOptions = {}
   ): Promise<T> {
     return this.condition(condition, options);

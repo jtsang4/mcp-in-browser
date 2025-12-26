@@ -9,6 +9,7 @@ import { globalTaskQueue } from '../concurrency/task-queue';
 import { getTool, getToolNames, type ToolDefinition } from './tools';
 import { generateId } from '../core/id-generator';
 import { handleError } from '../core/errors';
+import { browser } from 'wxt/browser';
 
 // Global state
 let bridgeClient: ReturnType<typeof createBridgeClient> | null = null;
@@ -106,7 +107,7 @@ export async function sendToContentScript<T = unknown>(
     });
 
     const timeoutHandle = setTimeout(() => {
-      chrome.runtime.onMessage.removeListener(listener);
+      browser.runtime.onMessage.removeListener(listener);
       reject(new Error('Content script response timeout'));
     }, timeout);
 
@@ -115,7 +116,7 @@ export async function sendToContentScript<T = unknown>(
       sender: chrome.runtime.MessageSender
     ) => {
       if (message.type === 'response' && message.id === id) {
-        chrome.runtime.onMessage.removeListener(listener);
+        browser.runtime.onMessage.removeListener(listener);
         clearTimeout(timeoutHandle);
 
         if (message.error) {
@@ -132,10 +133,10 @@ export async function sendToContentScript<T = unknown>(
       }
     };
 
-    chrome.runtime.onMessage.addListener(listener);
+    browser.runtime.onMessage.addListener(listener);
 
-    chrome.tabs.sendMessage(tabId, { type, id, ...params }).catch((error) => {
-      chrome.runtime.onMessage.removeListener(listener);
+    browser.tabs.sendMessage(tabId, { type, id, ...params }).catch((error) => {
+      browser.runtime.onMessage.removeListener(listener);
       clearTimeout(timeoutHandle);
       reject(error);
     });
@@ -146,7 +147,7 @@ export async function sendToContentScript<T = unknown>(
  * Get current tab
  */
 export async function getCurrentTab(): Promise<chrome.tabs.Tab | undefined> {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   return tabs[0];
 }
 
@@ -157,7 +158,7 @@ function setupContentScriptHealthCheck() {
   // Ping active tabs periodically to check content script status
   setInterval(async () => {
     try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
       if (tabs[0]?.id) {
         const result = await sendToContentScript<{ pong: boolean }>(
           tabs[0].id,
@@ -188,7 +189,7 @@ export async function ensureContentScriptInjected(tabId: number): Promise<boolea
     logger.info('Background', 'Re-injecting content script', { tabId });
 
     try {
-      await chrome.scripting.executeScript({
+      await browser.scripting.executeScript({
         target: { tabId },
         files: ['/content-scripts/content.js'],
       });
