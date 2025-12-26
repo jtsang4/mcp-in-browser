@@ -4,7 +4,7 @@
 
 import { loadConfig, saveConfig, defaultConfig } from '../core/config';
 import { logger, LogLevel } from '../core/logger';
-import { createBridgeClient } from '../bridge/client';
+import { createBridgeClient } from '../../shared/bridge/client';
 import { globalTaskQueue } from '../concurrency/task-queue';
 import { getTool, getToolNames } from './tools';
 import { generateId } from '../core/id-generator';
