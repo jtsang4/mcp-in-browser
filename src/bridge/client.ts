@@ -6,21 +6,8 @@ import WebSocket from 'ws';
 import { logger } from '../core/logger';
 import { AppError, ErrorCode } from '../core/errors';
 import { generateId } from '../core/id-generator';
-import type { AppConfig } from '../core/config';
+import type { BridgeClientConfig, BridgeMessage, BridgeClientType } from '../../types/bridge';
 import type { JsonValue } from '../../types';
-
-export interface BridgeMessage {
-  type: 'hello' | 'tool_call' | 'response' | 'error';
-  id?: string;
-  tool?: string;
-  params?: Record<string, JsonValue>;
-  data?: JsonValue | null;
-  error?: string;
-  client?: 'extension' | 'mcp-server';
-  status?: string;
-}
-
-export type BridgeClientType = 'extension' | 'mcp-server';
 
 export class BridgeClient {
   private ws: WebSocket | null = null;
@@ -34,14 +21,12 @@ export class BridgeClient {
     timeout: ReturnType<typeof setTimeout>;
   }>();
 
-  private config: Pick<AppConfig, 'bridge'> = {
-    bridge: {
-      url: 'ws://localhost:37373',
-      port: 37373,
-      reconnectInterval: 2000,
-      maxReconnectAttempts: 10,
-      messageQueueLimit: 100,
-    },
+  private config: BridgeClientConfig = {
+    url: 'ws://localhost:37373',
+    port: 37373,
+    reconnectInterval: 2000,
+    maxReconnectAttempts: 10,
+    messageQueueLimit: 100,
   };
 
   private messageHandler: ((message: BridgeMessage) => Promise<void> | void) | null = null;
@@ -50,14 +35,14 @@ export class BridgeClient {
 
   constructor(
     private clientType: BridgeClientType,
-    config?: Pick<AppConfig, 'bridge'>
+    config?: BridgeClientConfig
   ) {
     if (config) {
       this.config = config;
     }
   }
 
-  setConfig(config: Pick<AppConfig, 'bridge'>) {
+  setConfig(config: BridgeClientConfig) {
     this.config = config;
   }
 
@@ -78,7 +63,7 @@ export class BridgeClient {
       return;
     }
 
-    const url = this.config.bridge.url;
+    const url = this.config.url;
 
     logger.info('BridgeClient', `Connecting to bridge at ${url}`, {
       clientType: this.clientType,
@@ -218,7 +203,7 @@ export class BridgeClient {
   }
 
   private scheduleReconnect() {
-    if (this.reconnectAttempts >= this.config.bridge.maxReconnectAttempts) {
+    if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
       logger.error('BridgeClient', 'Max reconnect attempts reached, giving up');
       return;
     }
@@ -235,7 +220,7 @@ export class BridgeClient {
             this.reconnectTimer = null;
           }
         }
-      }, this.config.bridge.reconnectInterval);
+      }, this.config.reconnectInterval);
     }
   }
 
@@ -263,7 +248,7 @@ export class BridgeClient {
     }
 
     // Queue message if not connected
-    if (this.messageQueue.length >= this.config.bridge.messageQueueLimit) {
+    if (this.messageQueue.length >= this.config.messageQueueLimit) {
       logger.warn('BridgeClient', 'Message queue limit reached, dropping oldest message');
       this.messageQueue.shift();
     }
@@ -359,7 +344,10 @@ export class BridgeClient {
 
 export function createBridgeClient(
   clientType: BridgeClientType,
-  config?: Pick<AppConfig, 'bridge'>
+  config?: BridgeClientConfig
 ): BridgeClient {
   return new BridgeClient(clientType, config);
 }
+
+// Re-export types for backward compatibility
+export type { BridgeMessage, BridgeClientType, BridgeClientConfig } from '../../types/bridge';

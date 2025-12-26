@@ -27,8 +27,8 @@ export async function initialize() {
   logger.info('Background', 'Initializing MCP in Browser extension');
 
   // Initialize bridge client
-  bridgeClient = createBridgeClient('extension', { bridge: config.bridge });
-  bridgeClient.setConfig({ bridge: config.bridge });
+  bridgeClient = createBridgeClient('extension', config.bridge);
+  bridgeClient.setConfig(config.bridge);
 
   // Set up message handlers
   bridgeClient.setMessageHandler(handleToolCallFromBridge);
@@ -230,7 +230,7 @@ export async function updateConfig(newConfig: Partial<typeof config>) {
   // Update dependent configs
   logger.setConfig({ logging: config.logging });
   globalTaskQueue.setConfig({ concurrency: config.concurrency });
-  bridgeClient?.setConfig({ bridge: config.bridge });
+  bridgeClient?.setConfig(config.bridge);
 
   logger.info('Background', 'Configuration updated', { newConfig });
 }

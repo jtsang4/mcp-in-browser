@@ -3,6 +3,9 @@
  */
 import { storage } from 'wxt/utils/storage';
 
+// Re-export from types/config.ts
+export type { LoggingConfig, BridgeConfig, AppConfig as NewAppConfig, getDefaultConfig } from '../../types/config';
+
 export interface AppConfig {
   bridge: {
     url: string;
