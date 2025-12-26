@@ -9,7 +9,7 @@ import { globalTaskQueue } from '../concurrency/task-queue';
 import { getTool, getToolNames, type ToolDefinition } from './tools';
 import { generateId } from '../core/id-generator';
 import { handleError } from '../core/errors';
-import { browser } from 'wxt/browser';
+import { browser, type Browser } from 'wxt/browser';
 
 
 // Global state
@@ -115,7 +115,7 @@ export async function sendToContentScript<T = unknown>(
 
     const listener = (
       message: { type: string; id?: string; data?: unknown; error?: string },
-      sender: chrome.runtime.MessageSender
+      sender: Browser.runtime.MessageSender
     ) => {
       if (message.type === 'response' && message.id === id) {
         browser.runtime.onMessage.removeListener(listener);
@@ -148,7 +148,7 @@ export async function sendToContentScript<T = unknown>(
 /**
  * Get current tab
  */
-export async function getCurrentTab(): Promise<chrome.tabs.Tab | undefined> {
+export async function getCurrentTab(): Promise<Browser.tabs.Tab | undefined> {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   return tabs[0];
 }

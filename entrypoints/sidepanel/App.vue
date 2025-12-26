@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, nextTick } from 'vue';
 import { sendMessage as sendExtensionMessage } from '@/messaging/protocol';
+import { browser } from 'wxt/browser';
 
 interface TabInfo {
   id: number;
@@ -35,8 +36,8 @@ onMounted(async () => {
   addMessage('system', 'Claude in Chrome is ready! You can ask me to help you with browser automation tasks like navigating to websites, clicking elements, filling forms, and more.');
 
   // Listen for tab updates
-  chrome.tabs.onActivated.addListener(loadCurrentTab);
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  browser.tabs.onActivated.addListener(loadCurrentTab);
+  browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.url || changeInfo.title) {
       loadCurrentTab();
     }
@@ -45,7 +46,7 @@ onMounted(async () => {
 
 async function loadCurrentTab() {
   try {
-    const tab = await chrome.tabs.query({ active: true, currentWindow: true }).then(tabs => tabs[0]);
+    const tab = await browser.tabs.query({ active: true, currentWindow: true }).then(tabs => tabs[0]);
     if (tab?.id) {
       currentTab.value = {
         id: tab.id,
@@ -232,11 +233,7 @@ function formatMessage(content: string): string {
 
     <!-- Chat Messages -->
     <div ref="chatContainer" class="chat-container">
-      <div
-        v-for="message in messages"
-        :key="message.id"
-        :class="['message', `message-${message.role}`]"
-      >
+      <div v-for="message in messages" :key="message.id" :class="['message', `message-${message.role}`]">
         <div class="message-role">{{ message.role }}</div>
         <div class="message-content" v-html="formatMessage(message.content)"></div>
         <div class="message-time">{{ new Date(message.timestamp).toLocaleTimeString() }}</div>
@@ -252,19 +249,10 @@ function formatMessage(content: string): string {
 
     <!-- Input Area -->
     <div class="input-container">
-      <textarea
-        v-model="inputMessage"
-        @keydown="handleKeyPress"
-        placeholder="Ask me to help with browser tasks... (Shift+Enter for new line)"
-        class="message-input"
-        rows="3"
-        :disabled="isLoading"
-      ></textarea>
-      <button
-        @click="sendChatMessage"
-        :disabled="isLoading || !inputMessage.trim()"
-        class="send-button"
-      >
+      <textarea v-model="inputMessage" @keydown="handleKeyPress"
+        placeholder="Ask me to help with browser tasks... (Shift+Enter for new line)" class="message-input" rows="3"
+        :disabled="isLoading"></textarea>
+      <button @click="sendChatMessage" :disabled="isLoading || !inputMessage.trim()" class="send-button">
         Send
       </button>
     </div>
@@ -399,8 +387,15 @@ function formatMessage(content: string): string {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 .input-container {

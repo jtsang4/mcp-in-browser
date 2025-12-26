@@ -1,15 +1,12 @@
-/**
- * Tool Execution Handlers
- */
-
 import { logger } from '../core/logger';
 import { AppError, ErrorCode } from '../core/errors';
 import { Schemas } from '../core/validator';
-import { browser } from 'wxt/browser';
+import { browser, type Browser } from 'wxt/browser';
 
 export interface ToolHandler<T = unknown> {
   (params: Record<string, unknown>): Promise<T>;
 }
+
 
 export interface ToolDefinition {
   name: string;
@@ -122,7 +119,7 @@ export const getPageContentTool: ToolHandler = async (params) => {
  */
 export const screenshotTool: ToolHandler = async (params) => {
   const validated = Schemas.screenshot.parse(params);
-  let tab: chrome.tabs.Tab | undefined;
+  let tab: Browser.tabs.Tab | undefined;
 
   if (validated.tabId !== undefined) {
     tab = await browser.tabs.get(validated.tabId);
@@ -341,7 +338,7 @@ async function getCurrentTabId(): Promise<number | undefined> {
   return tab?.id;
 }
 
-async function getCurrentTab(): Promise<chrome.tabs.Tab | undefined> {
+async function getCurrentTab(): Promise<Browser.tabs.Tab | undefined> {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   return tabs[0];
 }
@@ -362,7 +359,7 @@ async function sendToContentScript<T = unknown>(
 
     const listener = (
       message: { type: string; id?: string; data?: unknown; error?: string },
-      sender: chrome.runtime.MessageSender
+      sender: Browser.runtime.MessageSender
     ) => {
       if (message.type === 'response' && message.id === id) {
         browser.runtime.onMessage.removeListener(listener);

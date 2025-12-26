@@ -9,6 +9,7 @@ import { Interactions } from '../src/content/interactions';
 import { WaitFor } from '../src/content/wait-for';
 import { PageInfo } from '../src/content/page-info';
 import { logger } from '../src/core/logger';
+import { browser } from 'wxt/browser';
 
 interface ContentMessage {
   type: string;
@@ -37,7 +38,7 @@ function sendResponse(id: string, data: unknown, error?: string) {
     data,
     error,
   };
-  chrome.runtime.sendMessage(response);
+  browser.runtime.sendMessage(response);
 }
 
 const handlers: Record<string, (message: ContentMessage) => Promise<unknown>> = {
@@ -71,28 +72,28 @@ const handlers: Record<string, (message: ContentMessage) => Promise<unknown>> = 
   ping: async () => ({ pong: true }),
 };
 
-chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, _sendResponse) => {
-  (async () => {
-    const { type, id } = message;
-    const handler = handlers[type];
-    if (!handler) {
-      sendResponse(id, null, `Unknown message type: ${type}`);
-      return;
-    }
-    try {
-      const result = await handler(message);
-      sendResponse(id, result);
-    } catch (error) {
-      sendResponse(id, null, error instanceof Error ? error.message : String(error));
-    }
-  })();
-  return true;
-});
-
 export default defineContentScript({
   matches: ['<all_urls>'],
   main() {
     console.log('[ContentScript] MCP in Browser loaded on:', window.location.href);
     logger.info('ContentScript', 'Loaded', { url: window.location.href });
+
+    browser.runtime.onMessage.addListener((message: ContentMessage, _sender, _sendResponse) => {
+      (async () => {
+        const { type, id } = message;
+        const handler = handlers[type];
+        if (!handler) {
+          sendResponse(id, null, `Unknown message type: ${type}`);
+          return;
+        }
+        try {
+          const result = await handler(message);
+          sendResponse(id, result);
+        } catch (error) {
+          sendResponse(id, null, error instanceof Error ? error.message : String(error));
+        }
+      })();
+      return true;
+    });
   },
 });

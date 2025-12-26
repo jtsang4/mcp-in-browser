@@ -1,6 +1,6 @@
 {
   "name": "mcp-in-browser",
-  "description": "Browser automation extension that works with Claude Code via MCP",
+  "description": "Browser automation extension that works with MCP",
   "private": true,
   "version": "0.1.0",
   "type": "module",

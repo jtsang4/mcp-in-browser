@@ -1,7 +1,7 @@
 /**
  * Application Configuration
  */
-import { browser } from 'wxt/browser';
+import { storage } from 'wxt/utils/storage';
 
 export interface AppConfig {
   bridge: {
@@ -52,16 +52,17 @@ export const defaultConfig: AppConfig = {
 };
 
 // Load config from storage, merge with defaults
+export const configItem = storage.defineItem<AppConfig>('local:config', {
+  defaultValue: defaultConfig,
+});
+
 export async function loadConfig(): Promise<AppConfig> {
   try {
-    const stored = await browser.storage.local.get('config');
-    if (stored.config) {
-      return { ...defaultConfig, ...stored.config };
-    }
+    return await configItem.getValue();
   } catch (error) {
     console.warn('[Config] Failed to load stored config:', error);
+    return defaultConfig;
   }
-  return defaultConfig;
 }
 
 // Save config to storage
@@ -69,7 +70,7 @@ export async function saveConfig(config: Partial<AppConfig>): Promise<void> {
   try {
     const current = await loadConfig();
     const merged = { ...current, ...config };
-    await browser.storage.local.set({ config: merged });
+    await configItem.setValue(merged);
   } catch (error) {
     console.warn('[Config] Failed to save config:', error);
   }
