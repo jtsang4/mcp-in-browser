@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is **MCP in Browser** - a browser automation Chrome/Firefox extension built with **WXT** (Web Extension Tools) and **Vue 3** + TypeScript. The project provides browser automation tools to Claude Code via the Model Context Protocol (MCP).
+This is **MCP in Browser** - a browser automation Chrome/Firefox extension built with **WXT** (Web Extension Tools) and TypeScript. The project provides browser automation tools to Claude Code via the Model Context Protocol (MCP).
 
 ### Architecture
 
@@ -13,10 +13,11 @@ The project uses a bridge architecture for communication between the MCP server 
 1. **MCP Server** (`mcp-server/index.ts`) - Node.js server that implements MCP protocol
 2. **WebSocket Bridge** (`mcp-server/bridge.ts`) - Forwards messages between MCP server and extension
 3. **Browser Extension** - Chrome/Firefox extension that executes browser automation
-4. **Extension Bridge Client** (`background-bridge.ts`) - WebSocket client in the extension
+4. **Shared Bridge Client** (`shared/bridge/client.ts`) - Unified WebSocket client used by both extension and MCP server
+5. **Unified Messaging** (`entrypoints/messaging/`) - Type-safe messaging using @webext-core/messaging
 
 ```
-Claude Code → MCP Server → WebSocket Bridge → Extension (background-bridge.ts) → Content Scripts
+Claude Code → MCP Server → Shared BridgeClient → WebSocket Bridge → Extension → Content Scripts
 ```
 
 ## Development Commands
@@ -53,22 +54,38 @@ WXT uses a file-based routing system in `entrypoints/`:
 
 - `background.ts` - Service worker/background script using `defineBackground()`
 - `content.ts` - Content script injected into web pages using `defineContentScript()`
-- `popup/` - Browser action popup UI (Vue 3 app)
-- `sidepanel/` - Side panel UI (Vue 3 app)
+- `messaging/` - Unified messaging protocol and handlers using @webext-core/messaging
 
 Each file in `entrypoints/` automatically becomes an extension entry point.
+
+### Shared Modules
+
+The `shared/` directory contains code shared between the extension and MCP server:
+
+- `shared/bridge/client.ts` - Unified BridgeClient implementation
+- `shared/storage/index.ts` - Storage helper functions
+
+### Type Organization
+
+Type definitions are organized in `types/`:
+
+- `types/index.ts` - Core types (JsonValue, JsonSchema)
+- `types/bridge.ts` - Bridge message and client types
+- `types/messaging.ts` - Content script messaging types
+- `types/tools.ts` - Tool handler and definition types
+- `types/config.ts` - Configuration types
 
 ### Bridge Architecture
 
 The bridge is a WebSocket server that connects the MCP server (Node.js) with the browser extension:
 
 1. **Start the bridge**: `pnpm run bridge` - Runs on `ws://localhost:37373`
-2. **Extension connects**: The extension automatically connects to the bridge via `background-bridge.ts`
-3. **MCP server connects**: The MCP server connects to the bridge when started
+2. **Extension connects**: The extension automatically connects to the bridge via shared BridgeClient
+3. **MCP server connects**: The MCP server connects to the bridge when started using the same shared BridgeClient
 
 Message flow:
-- Tool calls: MCP Server → Bridge → Extension → Content Scripts
-- Responses: Content Scripts → Extension → Bridge → MCP Server
+- Tool calls: MCP Server → Shared BridgeClient → WebSocket Bridge → Extension → Content Scripts
+- Responses: Content Scripts → Extension → WebSocket Bridge → Shared BridgeClient → MCP Server
 
 ### Content Script Matching
 
@@ -76,16 +93,10 @@ Content scripts specify URL patterns via the `matches` option:
 
 ```typescript
 export default defineContentScript({
-  matches: ['*://*.google.com/*'],
+  matches: ['<all_urls>'],
   main() { /* ... */ },
 });
 ```
-
-### Vue Integration
-
-- Uses `<script setup>` syntax (Composition API)
-- Import alias: `@/` references project root (e.g., `@/components/HelloWorld.vue`)
-- Popup initialized in `entrypoints/popup/main.ts`
 
 ### Configuration
 
@@ -107,102 +118,108 @@ Place icons in `public/icon/` with standard sizes: 16, 32, 48, 96, 128 PNG.
 
 ## WebExt Core Libraries
 
-This project can leverage **[@webext-core](https://webext-core.aklinker1.io/)** libraries - a collection of utilities that simplify web extension development with type-safe, cross-browser APIs. Full documentation: https://webext-core.aklinker1.io/
+This project uses **[@webext-core](https://webext-core.aklinker1.io/)** libraries for type-safe, cross-browser APIs. Full documentation: https://webext-core.aklinker1.io/
 
-### Available Packages
+### Packages in Use
 
-| Package | Description |
-|---------|-------------|
-| `@webext-core/storage` | Type-safe API for extension storage (similar to localStorage) |
-| `@webext-core/messaging` | Simplified, type-safe message passing between contexts |
-| `@webext-core/proxy-service` | Execute functions in background context from anywhere |
-| `@webext-core/job-scheduler` | Schedule and manage recurring jobs |
-| `@webext-core/match-patterns` | Utilities for working with match patterns |
-| `@webext-core/isolated-element` | Create style-isolated containers for content scripts |
-| `@webext-core/fake-browser` | In-memory webextension-polyfill implementation for testing |
+| Package | Usage |
+|---------|-------|
+| `@webext-core/messaging` | Unified messaging protocol between extension contexts (see `entrypoints/messaging/protocol.ts`) |
+| `@webext-core/storage` | Type-safe storage (via WXT's storage utilities in `src/core/config.ts`) |
 
-### Installation
+### Unified Messaging Protocol
 
-```bash
-ppnpm add @webext-core/storage
-ppnpm add @webext-core/messaging
-# etc.
-```
+The project uses `@webext-core/messaging` for type-safe messaging:
 
-### Example: Messaging
-
+**Protocol Definition** (`entrypoints/messaging/protocol.ts`):
 ```typescript
-// messaging.ts
 import { defineExtensionMessaging } from '@webext-core/messaging';
 
-interface ProtocolMap {
-  getStringLength(data: string): number;
+interface ExtensionProtocolMap {
+  navigate: (input: { url: string; tabId?: number }) => Promise<{ success: boolean }>;
+  click: (input: { selector: string; tabId?: number }) => Promise<{ success: boolean; error?: string }>;
+  // ... more tool definitions
 }
 
-export const { sendMessage, onMessage } = defineExtensionMessaging<ProtocolMap>();
-
-// background.ts
-onMessage('getStringLength', ({ data }) => data.length);
-
-// content.ts or popup
-const length = await sendMessage('getStringLength', 'hello');
+export const { sendMessage, onMessage } = defineExtensionMessaging<ExtensionProtocolMap>();
 ```
 
-### Example: Proxy Service
-
+**Content Script Handlers** (`entrypoints/messaging/content-handlers.ts`):
 ```typescript
-// MathService.ts
-import { defineProxyService } from '@webext-core/proxy-service';
+import { onMessage } from './protocol';
 
-class MathService {
-  async fibonacci(n: number): Promise<number> { /* ... */ }
-}
+onMessage('click', async ({ data }) => {
+  return await Interactions.click(data.selector, data.options || {});
+});
+```
 
-export const [registerMathService, getMathService] = defineProxyService(
-  'MathService',
-  () => new MathService(),
-);
+**Background Script Usage** (`src/background/tools.ts`):
+```typescript
+import { sendMessage } from '../../entrypoints/messaging/protocol';
 
-// background.ts - register the service
-registerMathService();
-
-// Anywhere else - call methods that execute in background
-const mathService = getMathService();
-await mathService.fibonacci(100);
+export const clickTool: ToolHandler = async (params) => {
+  const validated = Schemas.click.parse(params);
+  return await sendMessage('click', {
+    selector: validated.selector,
+    tabId: validated.tabId,
+  });
+};
 ```
 
 ## Key Files
 
-### `background-bridge.ts`
+### `shared/bridge/client.ts`
 
-Extension WebSocket client that connects to the bridge server:
+Unified BridgeClient implementation used by both extension and MCP server:
 
-- Automatically connects on service worker startup
-- Handles incoming tool calls from the MCP server
-- Sends responses back through the bridge
-- Auto-reconnects on disconnection
+- Automatically connects to the bridge WebSocket server
+- Handles message queuing and reconnection
+- Provides `sendRequest()` for request/response pattern
+- Provides `sendMessage()` for fire-and-forget messages
+
+### `entrypoints/messaging/protocol.ts`
+
+Defines the unified messaging protocol using @webext-core/messaging:
+
+- `ExtensionProtocolMap` interface defining all available messages
+- `sendMessage()` function for sending messages
+- `onMessage()` function for registering handlers
+
+### `entrypoints/messaging/content-handlers.ts`
+
+Content script message handlers that:
+- Register with `onMessage()` for each tool type
+- Call functions from `src/content/` modules
+- Return properly typed responses
+
+### `entrypoints/messaging/background-handlers.ts`
+
+Background script message handlers that:
+- Handle browser APIs (tabs, screenshots, navigation)
+- Register with `onMessage()` for background-specific tools
+
+### `src/background/tools.ts`
+
+Tool definitions and handlers that:
+- Define tool schemas using Zod
+- Use `sendMessage()` from unified messaging protocol
+- Provide tool descriptions for MCP server
 
 ### `mcp-server/bridge.ts`
 
-WebSocket bridge server that forwards messages:
-
+WebSocket bridge server that:
 - Listens on `ws://localhost:37373`
-- Tracks both extension and MCP server clients
+- Tracks connected extension and MCP server clients
 - Forwards `tool_call` messages from MCP server to extension
 - Forwards `response` messages from extension to MCP server
 
 ### `mcp-server/index.ts`
 
-MCP server implementation:
-
+MCP server implementation that:
 - Implements the MCP protocol (stdio transport)
+- Uses shared BridgeClient to connect to the bridge
 - Defines all browser automation tools
-- Connects to the bridge via WebSocket
-- Forwards tool calls and receives responses
-
-### `types/index.ts`
-
-TypeScript definitions for all tool inputs/outputs.
+- Handles tool calls from Claude Code
 
 ## Build Output
 
