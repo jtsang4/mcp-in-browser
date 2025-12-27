@@ -35,6 +35,8 @@ export interface PageContent {
   url: string;
   text?: string;
   html?: string;
+  selectedContent?: string;
+  timestamp?: number;
   [key: string]: JsonValue | undefined;
 }
 

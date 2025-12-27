@@ -1,80 +1,28 @@
 /**
  * Application Configuration
+ * Re-exports from shared storage module
  */
-import { storage } from 'wxt/utils/storage';
 
-// Re-export from types/config.ts
-export type { LoggingConfig, BridgeConfig, AppConfig as NewAppConfig, getDefaultConfig } from '../../types/config';
+// Re-export types and functions from shared storage
+export {
+  getConfig,
+  updateConfig as saveConfig,
+  resetConfig,
+  getLogs,
+  addLog,
+  clearLogs,
+  onConfigChanged,
+  defaultAppConfig as defaultConfig,
+} from '../../shared/storage';
 
-export interface AppConfig {
-  bridge: {
-    url: string;
-    port: number;
-    reconnectInterval: number;
-    maxReconnectAttempts: number;
-    messageQueueLimit: number;
-  };
-  timeouts: {
-    contentScriptResponse: number;
-    elementWait: number;
-    pageLoad: number;
-    networkIdle: number;
-  };
-  concurrency: {
-    maxPerTab: number;
-    maxGlobal: number;
-  };
-  logging: {
-    level: 'debug' | 'info' | 'warn' | 'error';
-    enableTracing: boolean;
-  };
-}
+export type { LogEntry } from '../../shared/storage';
 
-export const defaultConfig: AppConfig = {
-  bridge: {
-    url: 'ws://localhost:37373',
-    port: 37373,
-    reconnectInterval: 2000,
-    maxReconnectAttempts: 10,
-    messageQueueLimit: 100,
-  },
-  timeouts: {
-    contentScriptResponse: 30000,
-    elementWait: 10000,
-    pageLoad: 30000,
-    networkIdle: 5000,
-  },
-  concurrency: {
-    maxPerTab: 3,
-    maxGlobal: 10,
-  },
-  logging: {
-    level: 'info',
-    enableTracing: true,
-  },
-};
+// Re-export types from types/config
+export type { LoggingConfig, BridgeConfig, AppConfig, TimeoutConfig, ConcurrencyConfig, getDefaultConfig } from '../../types/config';
 
-// Load config from storage, merge with defaults
-export const configItem = storage.defineItem<AppConfig>('local:config', {
-  defaultValue: defaultConfig,
-});
+// Keep loadConfig as an alias for getConfig for backward compatibility
+import { getConfig as _getConfig, defaultAppConfig } from '../../shared/storage';
 
-export async function loadConfig(): Promise<AppConfig> {
-  try {
-    return await configItem.getValue();
-  } catch (error) {
-    console.warn('[Config] Failed to load stored config:', error);
-    return defaultConfig;
-  }
-}
-
-// Save config to storage
-export async function saveConfig(config: Partial<AppConfig>): Promise<void> {
-  try {
-    const current = await loadConfig();
-    const merged = { ...current, ...config };
-    await configItem.setValue(merged);
-  } catch (error) {
-    console.warn('[Config] Failed to save config:', error);
-  }
+export async function loadConfig(): Promise<ReturnType<typeof _getConfig>> {
+  return await _getConfig();
 }

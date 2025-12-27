@@ -3,7 +3,7 @@
  */
 
 import type { PageContent, ElementInfo } from '../content/page-info';
-import type { TabInfo } from '../../types';
+import type { TabInfo } from '../../types/tools';
 
 /**
  * Mock Chrome APIs for testing
