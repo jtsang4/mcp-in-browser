@@ -121,16 +121,53 @@ export class PageInfo {
       timestamp: Date.now(),
     };
 
-    if (selector) {
-      const element = document.querySelector(selector);
-      if (!element) {
-        throw new Error(`Element "${selector}" not found`);
+    const element = selector ? document.querySelector(selector) : document.body;
+
+    if (selector && !element) {
+      throw new Error(`Element "${selector}" not found`);
+    }
+
+    if (element) {
+      // Clone the element to avoid modifying the actual page
+      const clone = element.cloneNode(true) as Element;
+
+      // Remove scripts and styles from the clone
+      const scripts = clone.querySelectorAll('script');
+      scripts.forEach((el) => el.remove());
+
+      const styles = clone.querySelectorAll('style');
+      styles.forEach((el) => el.remove());
+
+      const iframes = clone.querySelectorAll('iframe');
+      iframes.forEach((el) => el.remove());
+
+      const links = clone.querySelectorAll('link');
+      links.forEach((el) => el.remove());
+
+      const svgs = clone.querySelectorAll('svg');
+      svgs.forEach((el) => el.remove());
+
+      // Remove style attributes from all elements
+      const allElements = clone.querySelectorAll('*');
+      allElements.forEach((el) => el.removeAttribute('style'));
+      if (clone.removeAttribute) {
+          clone.removeAttribute('style');
       }
-      base.selectedContent = this.getText(element);
-      base.html = element.outerHTML;
+
+      // If the element itself is a script or style (which shouldn't happen usually but good to check), 
+      // we might return empty or handle it. 
+      // But assuming we are selecting content blocks.
+      
+      if (selector) {
+        base.selectedContent = this.getText(element);
+        base.html = clone.outerHTML;
+      } else {
+        base.text = (element as HTMLElement).innerText || '';
+        base.html = clone.innerHTML;
+      }
     } else {
-      base.text = document.body?.innerText || '';
-      base.html = document.body?.innerHTML || '';
+      base.text = '';
+      base.html = '';
     }
 
     return base;

@@ -25,22 +25,47 @@ export const navigateTool: ToolHandler = async (params) => {
 
   logger.info('Tool:navigate', 'Navigating to URL', { url: validated.url });
 
-  return await sendMessage('navigate', {
-    url: validated.url,
-    tabId: validated.tabId,
-  });
+  try {
+    if (validated.tabId) {
+      await browser.tabs.update(validated.tabId, { url: validated.url });
+      await browser.tabs.update(validated.tabId, { active: true });
+    } else {
+      await browser.tabs.create({ url: validated.url });
+    }
+    return { success: true } as unknown as JsonValue;
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) } as unknown as JsonValue;
+  }
 };
+
+/**
+ * Helper to get target tab ID
+ */
+async function getTargetTabId(tabId?: number): Promise<number> {
+  if (tabId) return tabId;
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  const activeTab = tabs[0];
+  if (!activeTab?.id) {
+    throw new Error('No active tab found');
+  }
+  return activeTab.id;
+}
 
 /**
  * Click an element
  */
 export const clickTool: ToolHandler = async (params) => {
   const validated = Schemas.click.parse(params);
+  const targetTabId = await getTargetTabId(validated.tabId);
 
-  return await sendMessage('click', {
-    selector: validated.selector,
-    tabId: validated.tabId,
-  });
+  return await sendMessage(
+    'click',
+    {
+      selector: validated.selector,
+      tabId: targetTabId,
+    },
+    targetTabId
+  ) as unknown as JsonValue;
 };
 
 /**
@@ -48,12 +73,17 @@ export const clickTool: ToolHandler = async (params) => {
  */
 export const clickAtTool: ToolHandler = async (params) => {
   const validated = Schemas.clickAt.parse(params);
+  const targetTabId = await getTargetTabId(validated.tabId);
 
-  return await sendMessage('click_at', {
-    x: validated.x,
-    y: validated.y,
-    tabId: validated.tabId,
-  });
+  return await sendMessage(
+    'click_at',
+    {
+      x: validated.x,
+      y: validated.y,
+      tabId: targetTabId,
+    },
+    targetTabId
+  ) as unknown as JsonValue;
 };
 
 /**
@@ -61,12 +91,17 @@ export const clickAtTool: ToolHandler = async (params) => {
  */
 export const fillTool: ToolHandler = async (params) => {
   const validated = Schemas.fill.parse(params);
+  const targetTabId = await getTargetTabId(validated.tabId);
 
-  return await sendMessage('fill', {
-    selector: validated.selector,
-    value: validated.value,
-    tabId: validated.tabId,
-  });
+  return await sendMessage(
+    'fill',
+    {
+      selector: validated.selector,
+      value: validated.value,
+      tabId: targetTabId,
+    },
+    targetTabId
+  ) as unknown as JsonValue;
 };
 
 /**
@@ -74,11 +109,16 @@ export const fillTool: ToolHandler = async (params) => {
  */
 export const getPageContentTool: ToolHandler = async (params) => {
   const validated = Schemas.getPageContent.parse(params);
+  const targetTabId = await getTargetTabId(validated.tabId);
 
-  const result = await sendMessage('get_page_content', {
-    selector: validated.selector,
-    tabId: validated.tabId,
-  });
+  const result = await sendMessage(
+    'get_page_content',
+    {
+      selector: validated.selector,
+      tabId: targetTabId,
+    },
+    targetTabId
+  );
 
   if (result.success && result.content) {
     result.content = {
@@ -87,7 +127,7 @@ export const getPageContentTool: ToolHandler = async (params) => {
     };
   }
 
-  return result as JsonValue;
+  return result as unknown as JsonValue;
 };
 
 /**
@@ -96,11 +136,34 @@ export const getPageContentTool: ToolHandler = async (params) => {
 export const screenshotTool: ToolHandler = async (params) => {
   const validated = Schemas.screenshot.parse(params);
 
-  return await sendMessage('screenshot', {
-    tabId: validated.tabId,
-    format: validated.format,
-    quality: validated.quality,
-  }) as JsonValue;
+  try {
+    let tabId = validated.tabId;
+    if (tabId === undefined) {
+      tabId = await getTargetTabId();
+    }
+
+    const tab = await browser.tabs.get(tabId);
+    if (!tab?.windowId) {
+      return { success: false, error: 'No active tab or window found' } as unknown as JsonValue;
+    }
+
+    const window = await browser.windows.get(tab.windowId);
+    const dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, {
+      format: validated.format || 'png',
+      quality: validated.quality || 90,
+    });
+
+    return {
+      success: true,
+      screenshot: {
+        dataUrl,
+        width: window.width || 0,
+        height: window.height || 0,
+      },
+    } as JsonValue;
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) } as unknown as JsonValue;
+  }
 };
 
 /**
@@ -109,9 +172,19 @@ export const screenshotTool: ToolHandler = async (params) => {
 export const listTabsTool: ToolHandler = async (params) => {
   const validated = Schemas.listTabs.parse(params);
 
-  return await sendMessage('list_tabs', {
-    activeOnly: validated.activeOnly,
-  }) as JsonValue;
+  try {
+    const query = validated.activeOnly ? { active: true } : {};
+    const tabs = await browser.tabs.query(query);
+    const tabsList = tabs.map((tab) => ({
+      id: tab.id!,
+      url: tab.url || '',
+      title: tab.title || '',
+      active: tab.active,
+    }));
+    return tabsList as unknown as JsonValue;
+  } catch (error) {
+    return [] as unknown as JsonValue;
+  }
 };
 
 /**
@@ -120,9 +193,16 @@ export const listTabsTool: ToolHandler = async (params) => {
 export const activateTabTool: ToolHandler = async (params) => {
   const validated = Schemas.activateTab.parse(params);
 
-  return await sendMessage('activate_tab', {
-    tabId: validated.tabId,
-  }) as JsonValue;
+  try {
+    await browser.tabs.update(validated.tabId, { active: true });
+    const tab = await browser.tabs.get(validated.tabId);
+    if (tab.windowId) {
+      await browser.windows.update(tab.windowId, { focused: true });
+    }
+    return { success: true } as unknown as JsonValue;
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) } as unknown as JsonValue;
+  }
 };
 
 /**
@@ -131,9 +211,19 @@ export const activateTabTool: ToolHandler = async (params) => {
 export const reloadTool: ToolHandler = async (params) => {
   const validated = Schemas.reload.parse(params);
 
-  return await sendMessage('reload', {
-    tabId: validated.tabId,
-  }) as JsonValue;
+  try {
+    if (validated.tabId) {
+      await browser.tabs.reload(validated.tabId);
+    } else {
+      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0]?.id) {
+        await browser.tabs.reload(tabs[0].id);
+      }
+    }
+    return { success: true } as unknown as JsonValue;
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) } as unknown as JsonValue;
+  }
 };
 
 /**
@@ -141,11 +231,16 @@ export const reloadTool: ToolHandler = async (params) => {
  */
 export const querySelectorTool: ToolHandler = async (params) => {
   const validated = Schemas.querySelector.parse(params);
+  const targetTabId = await getTargetTabId(validated.tabId);
 
-  return await sendMessage('query_selector', {
-    selector: validated.selector,
-    tabId: validated.tabId,
-  }) as JsonValue;
+  return await sendMessage(
+    'query_selector',
+    {
+      selector: validated.selector,
+      tabId: targetTabId,
+    },
+    targetTabId
+  ) as unknown as JsonValue;
 };
 
 /**
@@ -153,11 +248,16 @@ export const querySelectorTool: ToolHandler = async (params) => {
  */
 export const querySelectorAllTool: ToolHandler = async (params) => {
   const validated = Schemas.querySelectorAll.parse(params);
+  const targetTabId = await getTargetTabId(validated.tabId);
 
-  return await sendMessage('query_selector_all', {
-    selector: validated.selector,
-    tabId: validated.tabId,
-  }) as JsonValue;
+  return await sendMessage(
+    'query_selector_all',
+    {
+      selector: validated.selector,
+      tabId: targetTabId,
+    },
+    targetTabId
+  ) as unknown as JsonValue;
 };
 
 /**
@@ -165,11 +265,16 @@ export const querySelectorAllTool: ToolHandler = async (params) => {
  */
 export const getFormValuesTool: ToolHandler = async (params) => {
   const validated = Schemas.getFormValues.parse(params);
+  const targetTabId = await getTargetTabId(validated.tabId);
 
-  return await sendMessage('get_form_values', {
-    selector: validated.selector,
-    tabId: validated.tabId,
-  }) as JsonValue;
+  return await sendMessage(
+    'get_form_values',
+    {
+      selector: validated.selector,
+      tabId: targetTabId,
+    },
+    targetTabId
+  ) as unknown as JsonValue;
 };
 
 

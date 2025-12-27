@@ -9,6 +9,14 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import WebSocket from 'ws';
+
+// Polyfill WebSocket for Node.js environment
+if (!global.WebSocket) {
+  // @ts-ignore
+  global.WebSocket = WebSocket;
+}
+
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -263,9 +271,29 @@ async function sendExtensionMessage(toolName: string, params: Record<string, Jso
   try {
     return await bridgeClient.sendRequest<JsonValue>(toolName, params);
   } catch (error) {
-    throw new Error(
-      'Bridge not connected. Please ensure the bridge server is running (pnpm run bridge) and the Chrome extension is connected.'
-    );
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    
+    // Check if it's likely a connection error
+    const connectionKeywords = [
+      'Bridge not connected',
+      'Receiving end does not exist',
+      'Could not establish connection',
+      'Connection lost',
+      'Request timeout',
+      'Connection closed'
+    ];
+    
+    const isConnectionError = connectionKeywords.some(keyword => errorMsg.includes(keyword));
+
+    if (isConnectionError) {
+      throw new Error(
+        `Bridge connection error: ${errorMsg}. Please ensure the bridge server is running (pnpm run bridge) and the Chrome extension is connected.`
+      );
+    } else {
+      // For runtime errors (like Element not found), return the message as-is or with a minimal prefix
+      // We explicitly avoid adding the "Please ensure..." message for these errors
+      throw new Error(`Tool execution error: ${errorMsg}`);
+    }
   }
 }
 

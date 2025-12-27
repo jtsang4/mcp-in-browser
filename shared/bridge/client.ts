@@ -3,7 +3,7 @@
  * Used by both extension and MCP server
  */
 
-import WebSocket from 'ws';  // Node.js WebSocket
+// WebSocket expects to be globally available (native in browser, polyfilled in Node)
 import { logger } from '../../src/core/logger';
 import { AppError, ErrorCode } from '../../src/core/errors';
 import { generateId } from '../../src/core/id-generator';
@@ -72,7 +72,7 @@ export class BridgeClient {
 
     try {
       // Node.js WebSocket
-      this.ws = new WebSocket(url) as WebSocket;
+      this.ws = new WebSocket(url);
 
       this.ws.onopen = this.handleOpen.bind(this);
       this.ws.onmessage = this.handleMessage.bind(this);
@@ -134,7 +134,7 @@ export class BridgeClient {
     }
   }
 
-  private handleMessage(event: { data: WebSocket.Data | string }) {
+  private handleMessage(event: any) {
     try {
       const data = typeof event.data === 'string' ? event.data : event.data.toString();
       const message: BridgeMessage = JSON.parse(data);
@@ -185,8 +185,9 @@ export class BridgeClient {
     }
   }
 
-  private handleError(event: WebSocket.ErrorEvent) {
-    logger.error('BridgeClient', 'WebSocket error', { error: event.message });
+  private handleError(event: any) {
+    const errorMessage = event.message || event.error?.message || 'Unknown WebSocket error';
+    logger.error('BridgeClient', 'WebSocket error', { error: errorMessage });
     this.isConnected = false;
   }
 
